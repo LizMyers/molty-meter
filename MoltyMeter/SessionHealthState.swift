@@ -15,13 +15,57 @@ enum SessionHealthState: Equatable {
         }
     }
 
-    var advice: String {
+    private var advicePhrases: [String] {
         switch self {
-        case .healthy: return "Let's Go!"
-        case .watching: return "Cruising"
-        case .warning: return "Wrap it up"
-        case .heavy: return "Time to molt!"
+        case .healthy:
+            return [
+                "Let's go!",
+                "Fresh shell!",
+                "Claws out!",
+                "Feeling snappy",
+                "Ocean's clear",
+                "Seize the bait!",
+                "Shell yeah!",
+                "Tides are right",
+                "Ready to snap"
+            ]
+        case .watching:
+            return [
+                "Cruising",
+                "Steady claws",
+                "Swimming along",
+                "In flow",
+                "Making waves",
+                "Riding the tide"
+            ]
+        case .warning:
+            return [
+                "Wrap it up",
+                "Riptides ahead",
+                "Heavy current",
+                "Shell's tight",
+                "Watch the trap",
+                "Nets nearby",
+                "Shallow waters",
+                "Getting crabby"
+            ]
+        case .heavy:
+            return [
+                "Time to molt!",
+                "Shed that shell!",
+                "Fresh start time",
+                "Shell's cracking",
+                "Molt o'clock",
+                "Feeling the pinch!",
+                "Boiling point!",
+                "Escape the pot!",
+                "Butter's melting"
+            ]
         }
+    }
+
+    var advice: String {
+        advicePhrases.randomElement() ?? advicePhrases[0]
     }
 
     var adviceColor: Color {
