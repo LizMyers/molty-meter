@@ -25,12 +25,12 @@ struct ArcGaugeView: View {
 
             ZStack {
                 // Molty at center of arc - rotates to face session level
-                let lobsterRotation = -90.0 + (sessionProgress * 180.0)
+                let lobsterRotation = -92.0 + (sessionProgress * 180.0)  // -2 deg offset
                 Text("🦞")
-                    .font(.system(size: 44))
+                    .font(.system(size: 54))
                     .rotationEffect(.degrees(lobsterRotation))
                     .animation(.easeInOut(duration: 0.6), value: sessionProgress)
-                    .position(x: center.x, y: center.y)  // Centered at arc origin
+                    .position(x: center.x, y: center.y - 15)  // Moved up toward arc edge
 
                 // Background track
                 ArcShape(startAngle: startAngle, sweepAngle: sweepAngle)
