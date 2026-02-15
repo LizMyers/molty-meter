@@ -23,3 +23,8 @@ Thumbs.db
 .env
 .env.local
 *.pem
+
+# Graphics/design files
+*.ai
+*.eps
+*.webp
