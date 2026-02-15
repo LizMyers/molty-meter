@@ -123,6 +123,49 @@ The arc and circle work together: healthy sessions lead to healthy budgets.
 | Warning | "Riptides ahead", "Getting crabby", "Watch the trap" |
 | Critical | "Molt o'clock", "Butter's melting", "Escape the pot!" |
 
+## Make It Your Own
+
+Molty Meter was built for Claude, but the architecture is straightforward to adapt to any provider or model.
+
+### Add a new model's pricing
+
+Open `MoltyMeter/CostCalculator.swift` and add an entry to the `pricing` dictionary:
+
+```swift
+"gpt-4o": ModelPricing(
+    inputPerMillion: 2.50, outputPerMillion: 10.00,
+    cacheReadPerMillion: 1.25, cacheWritePerMillion: 0
+),
+```
+
+Models are matched by prefix, so `"gpt-4o"` will match `"gpt-4o-2025-01-01"` and similar variants.
+
+### Point to a different data directory
+
+The parser reads from `~/.claude/` by default. To change this, edit the `claudeDir` path in `MoltyMeter/ClaudeDataParser.swift`:
+
+```swift
+private static let claudeDir = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent(".your-tool-here")
+```
+
+Your tool needs to provide session data in JSONL format with `usage` fields (`input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`) on assistant messages.
+
+### Adjust health thresholds
+
+Edit `MoltyMeter/SessionHealthState.swift` to tune when Molty warns you:
+
+```swift
+static func from(cost: Double, totalTokens: Int) -> SessionHealthState {
+    if cost > 5.0 || totalTokens > 1_000_000 { return .heavy }
+    if cost > 3.50 || totalTokens > 750_000 { return .warning }
+    if cost > 2.0 || totalTokens > 500_000 { return .watching }
+    return .healthy
+}
+```
+
+Lower the thresholds for cheaper models, raise them for expensive ones.
+
 ## License
 
 MIT
