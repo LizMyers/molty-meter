@@ -2,7 +2,9 @@
 
 **Know when to shed your shell.**
 
-A floating macOS desktop widget that monitors Claude API session health in real-time. Molty the lobster watches your context window, tracks your spend, and tells you when it's time to start fresh — before your session gets heavy and expensive.
+A floating macOS desktop widget that monitors AI session health in real-time. Molty the lobster watches your context window, tracks your spend, and tells you when it's time to start fresh — before your session gets heavy and expensive.
+
+Originally built to monitor Anthropic Claude API spend, but works with any provider supported by [OpenClaw](https://github.com/openclaw).
 
 ![Molty Meter](molty-intro.png)
 
