@@ -52,6 +52,8 @@ struct ParsedSession {
 class ClaudeDataParser {
     private static let claudeDir = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude")
+    private static let openclawDir = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".openclaw")
     private static let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -153,5 +155,234 @@ class ClaudeDataParser {
         guard let sessionId = activeSessionId(),
               let url = findSessionJSONL(sessionId: sessionId) else { return nil }
         return url.path
+    }
+
+    // MARK: - OpenClaw Support
+
+    struct OpenClawSession {
+        let model: String
+        let inputTokens: Int
+        let outputTokens: Int
+        let totalTokens: Int
+        let contextLimit: Int
+        let sessionFile: String
+
+        var contextPercent: Double {
+            contextLimit > 0 ? Double(totalTokens) / Double(contextLimit) : 0
+        }
+
+        var cost: Double {
+            // OpenClaw doesn't track cache tokens separately in sessions.json
+            CostCalculator.cost(
+                model: model,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0
+            )
+        }
+    }
+
+    /// Load active OpenClaw sessions from ~/.openclaw/agents/*/sessions/sessions.json
+    static func loadOpenClawSessions() -> [OpenClawSession] {
+        let agentsDir = openclawDir.appendingPathComponent("agents")
+        guard let agentDirs = try? FileManager.default.contentsOfDirectory(
+            at: agentsDir, includingPropertiesForKeys: nil
+        ) else { return [] }
+
+        var sessions: [OpenClawSession] = []
+
+        for agentDir in agentDirs {
+            let sessionsFile = agentDir.appendingPathComponent("sessions/sessions.json")
+            guard let data = try? Data(contentsOf: sessionsFile),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                continue
+            }
+
+            for (_, value) in json {
+                guard let sessionInfo = value as? [String: Any],
+                      let model = sessionInfo["model"] as? String,
+                      let totalTokens = sessionInfo["totalTokens"] as? Int,
+                      let contextTokens = sessionInfo["contextTokens"] as? Int,
+                      let sessionFile = sessionInfo["sessionFile"] as? String else {
+                    continue
+                }
+
+                let inputTokens = sessionInfo["inputTokens"] as? Int ?? 0
+                let outputTokens = sessionInfo["outputTokens"] as? Int ?? 0
+
+                sessions.append(OpenClawSession(
+                    model: model,
+                    inputTokens: inputTokens,
+                    outputTokens: outputTokens,
+                    totalTokens: totalTokens,
+                    contextLimit: contextTokens,
+                    sessionFile: sessionFile
+                ))
+            }
+        }
+
+        return sessions
+    }
+
+    /// Calculate cost for OpenClaw session JSONL file
+    static func openClawSessionCost(jsonlPath: String) -> Double {
+        let url = URL(fileURLWithPath: jsonlPath)
+        guard let session = parseSession(jsonlURL: url, sessionId: url.deletingPathExtension().lastPathComponent) else {
+            return 0
+        }
+        return session.totalCost
+    }
+
+    /// Calculate total cost for all sessions in the current month (Claude Code + OpenClaw)
+    static func monthlyTotalCost() -> Double {
+        var totalCost: Double = 0
+
+        // Claude Code sessions
+        totalCost += claudeCodeMonthlyCost()
+
+        // OpenClaw sessions
+        totalCost += openClawMonthlyCost()
+
+        return totalCost
+    }
+
+    private static func claudeCodeMonthlyCost() -> Double {
+        let projectsDir = claudeDir.appendingPathComponent("projects")
+        guard let projectDirs = try? FileManager.default.contentsOfDirectory(
+            at: projectsDir, includingPropertiesForKeys: nil
+        ) else { return 0 }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+
+        var totalCost: Double = 0
+
+        for dir in projectDirs {
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: dir, includingPropertiesForKeys: [.contentModificationDateKey]
+            ) else { continue }
+
+            for file in files where file.pathExtension == "jsonl" {
+                // Skip files older than start of month (optimization)
+                if let modDate = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                   modDate < startOfMonth {
+                    continue
+                }
+
+                let sessionId = file.deletingPathExtension().lastPathComponent
+                if let session = parseSession(jsonlURL: file, sessionId: sessionId) {
+                    // Only count if session started this month
+                    if let startTime = session.startTime, startTime >= startOfMonth {
+                        totalCost += session.totalCost
+                    }
+                }
+            }
+        }
+
+        return totalCost
+    }
+
+    static func openClawMonthlyCost() -> Double {
+        let agentsDir = openclawDir.appendingPathComponent("agents")
+        guard let agentDirs = try? FileManager.default.contentsOfDirectory(
+            at: agentsDir, includingPropertiesForKeys: nil
+        ) else { return 0 }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+
+        var totalCost: Double = 0
+
+        for agentDir in agentDirs {
+            let sessionsDir = agentDir.appendingPathComponent("sessions")
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: sessionsDir, includingPropertiesForKeys: [.contentModificationDateKey]
+            ) else { continue }
+
+            for file in files where file.pathExtension == "jsonl" {
+                // Skip files older than start of month
+                if let modDate = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                   modDate < startOfMonth {
+                    continue
+                }
+
+                // Parse OpenClaw JSONL for cost
+                totalCost += parseOpenClawSessionCost(jsonlURL: file, startOfMonth: startOfMonth)
+            }
+        }
+
+        return totalCost
+    }
+
+    /// Parse OpenClaw session JSONL and calculate cost
+    private static func parseOpenClawSessionCost(jsonlURL: URL, startOfMonth: Date) -> Double {
+        guard let data = try? Data(contentsOf: jsonlURL),
+              let content = String(data: data, encoding: .utf8) else { return 0 }
+
+        let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        var totalCost: Double = 0
+        var sessionStart: Date?
+
+        for line in lines {
+            guard let lineData = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                continue
+            }
+
+            let type = obj["type"] as? String ?? ""
+
+            // Get session start time
+            if type == "session" && sessionStart == nil {
+                if let ts = obj["timestamp"] as? String {
+                    sessionStart = isoFormatter.date(from: ts)
+                }
+            }
+
+            // OpenClaw format: type=message, message.usage.cost.total
+            if type == "message",
+               let message = obj["message"] as? [String: Any],
+               let usage = message["usage"] as? [String: Any],
+               let cost = usage["cost"] as? [String: Any],
+               let costTotal = cost["total"] as? Double {
+                totalCost += costTotal
+            }
+        }
+
+        // Only count if session started this month
+        if let start = sessionStart, start < startOfMonth {
+            return 0
+        }
+
+        return totalCost
+    }
+
+    /// Parse OpenClaw session JSONL and return total cost for active session display
+    static func parseOpenClawSessionTotalCost(jsonlPath: String) -> Double {
+        let url = URL(fileURLWithPath: jsonlPath)
+        guard let data = try? Data(contentsOf: url),
+              let content = String(data: data, encoding: .utf8) else { return 0 }
+
+        let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        var totalCost: Double = 0
+
+        for line in lines {
+            guard let lineData = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                continue
+            }
+
+            if let type = obj["type"] as? String, type == "message",
+               let message = obj["message"] as? [String: Any],
+               let usage = message["usage"] as? [String: Any],
+               let cost = usage["cost"] as? [String: Any],
+               let costTotal = cost["total"] as? Double {
+                totalCost += costTotal
+            }
+        }
+
+        return totalCost
     }
 }

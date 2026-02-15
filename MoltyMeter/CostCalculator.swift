@@ -34,7 +34,8 @@ struct CostCalculator {
         cacheReadTokens: Int,
         cacheWriteTokens: Int
     ) -> Double {
-        guard let p = pricing[model] else { return 0 }
+        // Match model by prefix (e.g., "claude-opus-4-5-20251101" matches "claude-opus-4-5")
+        guard let p = pricing.first(where: { model.hasPrefix($0.key) })?.value else { return 0 }
         let input = Double(inputTokens) / 1_000_000.0 * p.inputPerMillion
         let output = Double(outputTokens) / 1_000_000.0 * p.outputPerMillion
         let cacheRead = Double(cacheReadTokens) / 1_000_000.0 * p.cacheReadPerMillion

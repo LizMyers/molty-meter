@@ -12,9 +12,15 @@ struct MoltyMeterApp: App {
     }
 }
 
+/// Custom window that accepts keyboard input even when borderless
+class KeyableWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var window: NSWindow!
+    var window: KeyableWindow!
     private let dataProvider = SessionDataProvider()
 
     private let windowSize = NSSize(width: 260, height: 340)
@@ -22,7 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        window = NSWindow(
+        window = KeyableWindow(
             contentRect: NSRect(origin: .zero, size: windowSize),
             styleMask: [.borderless],
             backing: .buffered,

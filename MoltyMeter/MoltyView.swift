@@ -1,11 +1,41 @@
 import SwiftUI
 
-private let textColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
+private let titleColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)  // #BBBBBB
+private let textColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)   // #DDDDDD
 
 struct MoltyView: View {
     @ObservedObject var data: SessionDataProvider
+    @State private var isShowingSettings = false
 
     var body: some View {
+        ZStack {
+            // Main view (front)
+            mainContent
+                .opacity(isShowingSettings ? 0 : 1)
+                .rotation3DEffect(
+                    .degrees(isShowingSettings ? 180 : 0),
+                    axis: (x: 0, y: 1, z: 0)
+                )
+
+            // Settings view (back)
+            SettingsView(isShowingSettings: $isShowingSettings)
+                .opacity(isShowingSettings ? 1 : 0)
+                .rotation3DEffect(
+                    .degrees(isShowingSettings ? 0 : -180),
+                    axis: (x: 0, y: 1, z: 0)
+                )
+        }
+        .animation(.easeInOut(duration: 0.4), value: isShowingSettings)
+        .onChange(of: isShowingSettings) { newValue in
+            // Refresh data when returning from settings
+            if !newValue {
+                data.refresh()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
         if data.hasActiveSession {
             activeView
         } else {
@@ -15,19 +45,38 @@ struct MoltyView: View {
 
     private var activeView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            Text("Molty Meter")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(textColor)
-                .padding(.bottom, 8)
+            // Header with settings button
+            HStack {
+                Text("Molty Meter")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(titleColor)
 
-            // Arc gauge with lobster
-            ArcGaugeView(
-                progress: data.healthState.arcProgress,
-                healthState: data.healthState
-            )
-            .frame(height: 110)
-            .padding(.horizontal, 4)
+                Spacer()
+
+                Button(action: { isShowingSettings = true }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(textColor.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.bottom, 8)
+
+            // Two gauges side by side: Session (large) + Budget (small battery)
+            HStack(alignment: .bottom, spacing: 12) {
+                // Session arc (larger)
+                ArcGaugeView(
+                    sessionProgress: data.healthState.arcProgress,
+                    budgetProgress: data.budgetPercentUsed,
+                    healthState: data.healthState
+                )
+                .frame(width: 170, height: 97)
+
+                // Budget gauge - shows amount SPENT (fills as you spend)
+                BatteryGaugeView(progress: data.budgetPercentUsed, size: 40)  // 10% bigger
+                    .offset(x: -10, y: -33)  // Left 10px, up 33px
+            }
+            .frame(maxWidth: .infinity)
 
             // Advice row
             HStack {
@@ -39,7 +88,7 @@ struct MoltyView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(textColor)
             }
-            .padding(.top, 20)
+            .padding(.top, 30)
             .padding(.bottom, 8)
 
             divider
@@ -49,7 +98,19 @@ struct MoltyView: View {
             divider
             metricRow(label: "Tokens used", value: data.formattedTokens)
             divider
-            metricRow(label: "Budget used", value: "\(Int(data.budgetPercentUsed * 100))%")
+            HStack {
+                Text("Monthly")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(textColor)
+                Spacer()
+                Text(String(format: "$%.2f", data.monthlySpend))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                Text(String(format: " / $%.0f", data.monthlyBudget))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(textColor)
+            }
+            .padding(.vertical, 8)
             divider
             metricRow(label: "Model", value: data.displayModelName)
         }
@@ -59,10 +120,20 @@ struct MoltyView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Text("Molty Meter")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(textColor)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("Molty Meter")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(titleColor)
+
+                Spacer()
+
+                Button(action: { isShowingSettings = true }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(textColor.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+            }
 
             Spacer()
 

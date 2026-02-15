@@ -15,10 +15,10 @@ class SessionDataProvider: ObservableObject {
     @Published var healthState: SessionHealthState = .healthy
     @Published var isRising: Bool = false
     @Published var hasActiveSession: Bool = false
-    @Published var sessionBudget: Double = 10.0  // per-session budget ceiling
+    @Published var monthlyBudget: Double = 100.0
+    @Published var monthlySpend: Double = 0
 
-    var budgetRemaining: Double { max(0, sessionBudget - sessionCost) }
-    var budgetPercentUsed: Double { sessionBudget > 0 ? min(1.0, sessionCost / sessionBudget) : 0 }
+    var budgetPercentUsed: Double { monthlyBudget > 0 ? min(1.0, monthlySpend / monthlyBudget) : 0 }
 
     /// Burn rate progress for the arc gauge (0.0 = no burn, 1.0 = max)
     /// Mapped so $0.20/min = max (red zone)
@@ -85,7 +85,16 @@ class SessionDataProvider: ObservableObject {
     }
 
     func refresh() {
-        guard let session = ClaudeDataParser.loadActiveSession() else {
+        // Load config
+        let config = MoltyConfig.load()
+        monthlyBudget = config.monthlyBudget
+
+        // Calculate monthly spend (OpenClaw only - Claude Code is subscription, not API billed)
+        monthlySpend = ClaudeDataParser.openClawMonthlyCost()
+
+        // Load active OpenClaw session
+        let openclawSessions = ClaudeDataParser.loadOpenClawSessions()
+        guard let session = openclawSessions.first else {
             hasActiveSession = false
             sessionCost = 0
             totalTokens = 0
@@ -104,36 +113,35 @@ class SessionDataProvider: ObservableObject {
         previousCost = sessionCost
         previousTotalTokens = totalTokens
 
-        inputTokens = session.totalInputTokens
-        outputTokens = session.totalOutputTokens
-        cacheReadTokens = session.totalCacheReadTokens
-        cacheWriteTokens = session.totalCacheWriteTokens
+        inputTokens = session.inputTokens
+        outputTokens = session.outputTokens
+        cacheReadTokens = 0
+        cacheWriteTokens = 0
         totalTokens = session.totalTokens
-        sessionCost = session.totalCost
-        modelName = session.primaryModel
-        sessionDuration = session.duration ?? 0
+        modelName = session.model
+        sessionDuration = 0
 
-        // Burn rate: cost per minute
-        if sessionDuration > 60 {
-            burnRate = sessionCost / (sessionDuration / 60.0)
-        } else {
-            burnRate = 0
-        }
+        // Get actual cost from JSONL file (pre-calculated by OpenClaw)
+        sessionCost = ClaudeDataParser.parseOpenClawSessionTotalCost(jsonlPath: session.sessionFile)
 
         // Trend
         if previousCost > 0 {
             isRising = sessionCost > previousCost
         }
 
-        healthState = SessionHealthState.from(cost: sessionCost, totalTokens: totalTokens)
+        // Health based on context usage for OpenClaw
+        healthState = SessionHealthState.fromContextPercent(session.contextPercent)
     }
 
     // MARK: - File Monitoring
 
     private func setupFileMonitor() {
-        guard let path = ClaudeDataParser.activeSessionJSONLPath() else { return }
-        currentMonitoredPath = path
-        startFileMonitor(path: path)
+        // Monitor OpenClaw sessions.json
+        let sessionsPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".openclaw/agents/main/sessions/sessions.json").path
+        guard FileManager.default.fileExists(atPath: sessionsPath) else { return }
+        currentMonitoredPath = sessionsPath
+        startFileMonitor(path: sessionsPath)
     }
 
     private func startFileMonitor(path: String) {
@@ -166,16 +174,8 @@ class SessionDataProvider: ObservableObject {
         currentMonitoredPath = nil
     }
 
-    /// Re-establish file monitor if session changed
+    /// Re-establish file monitor if needed
     private func checkFileMonitor() {
-        let newPath = ClaudeDataParser.activeSessionJSONLPath()
-        if newPath != currentMonitoredPath {
-            if let path = newPath {
-                currentMonitoredPath = path
-                startFileMonitor(path: path)
-            } else {
-                tearDownFileMonitor()
-            }
-        }
+        // OpenClaw sessions.json path is stable, no need to re-establish
     }
 }

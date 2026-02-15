@@ -53,4 +53,16 @@ enum SessionHealthState: Equatable {
         }
         return .healthy
     }
+
+    /// Health state based on context window usage (0.0 to 1.0)
+    static func fromContextPercent(_ percent: Double) -> SessionHealthState {
+        if percent > 0.85 {
+            return .heavy      // >85% context used — time to molt
+        } else if percent > 0.65 {
+            return .warning    // >65% — wrap it up
+        } else if percent > 0.40 {
+            return .watching   // >40% — cruising
+        }
+        return .healthy        // <40% — let's go
+    }
 }
