@@ -123,6 +123,13 @@ The arc and circle work together: healthy sessions lead to healthy budgets.
 | Warning | "Riptides ahead", "Getting crabby", "Watch the trap" |
 | Critical | "Molt o'clock", "Butter's melting", "Escape the pot!" |
 
+## TODO
+
+- [ ] Fall back to OpenClaw's embedded cost data when model isn't in the local pricing table (currently only Claude models are priced correctly in live session view)
+- [ ] Handle "no budget set" — show "—" or prompt user instead of defaulting to $10 silently
+- [ ] Settings view for monthly budget ceiling
+- [ ] Configurable data path (`~/.claude/` vs `~/.openclaw/`)
+
 ## License
 
 MIT
