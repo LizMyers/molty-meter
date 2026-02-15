@@ -23,7 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var window: KeyableWindow!
     private let dataProvider = SessionDataProvider()
 
-    private let windowSize = NSSize(width: 260, height: 340)
+    private let windowSize = NSSize(width: 260, height: 370)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)

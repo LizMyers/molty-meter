@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 private let titleColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)  // #BBBBBB
 private let textColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)   // #DDDDDD
@@ -113,6 +114,27 @@ struct MoltyView: View {
             .padding(.vertical, 8)
             divider
             metricRow(label: "Model", value: data.displayModelName)
+            divider
+
+            Spacer()
+
+            // Byline
+            Button(action: {
+                if let url = URL(string: "https://github.com/lizmyers/") {
+                    NSWorkspace.shared.open(url)
+                }
+            }) {
+                HStack {
+                    Text("by Liz Myers")
+                        .font(.system(size: 13))
+                        .foregroundColor(textColor.opacity(0.6))
+                    Spacer()
+                    Text("v1.0")
+                        .font(.system(size: 13))
+                        .foregroundColor(textColor.opacity(0.6))
+                }
+            }
+            .buttonStyle(.plain)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
