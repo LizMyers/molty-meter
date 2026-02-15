@@ -4,6 +4,8 @@
 
 A macOS widget that monitors your Claude API session health and monthly spend — so you can molt early and spend efficiently.
 
+![Molty Meter](MM01.png) ![Molty Meter](MM02.png) ![Molty Meter](MM03.png)
+
 ## The Insight
 
 Here's what most developers don't realize about Claude API sessions:
