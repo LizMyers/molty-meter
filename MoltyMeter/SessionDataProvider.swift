@@ -13,6 +13,7 @@ class SessionDataProvider: ObservableObject {
     @Published var sessionDuration: TimeInterval = 0
     @Published var burnRate: Double = 0  // dollars per minute
     @Published var healthState: SessionHealthState = .healthy
+    @Published var currentAdvice: String = "Let's go!"
     @Published var isRising: Bool = false
     @Published var hasActiveSession: Bool = false
     @Published var monthlyBudget: Double = 100.0
@@ -139,7 +140,11 @@ class SessionDataProvider: ObservableObject {
         }
 
         // Health based on context usage for OpenClaw
-        healthState = SessionHealthState.fromContextPercent(session.contextPercent)
+        let newHealthState = SessionHealthState.fromContextPercent(session.contextPercent)
+        if newHealthState != healthState {
+            healthState = newHealthState
+            currentAdvice = healthState.advice
+        }
     }
 
     // MARK: - File Monitoring

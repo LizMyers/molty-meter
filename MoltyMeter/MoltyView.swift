@@ -84,7 +84,7 @@ struct MoltyView: View {
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(textColor)
                 Spacer()
-                Text(data.healthState.advice)
+                Text(data.currentAdvice)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(textColor)
             }
