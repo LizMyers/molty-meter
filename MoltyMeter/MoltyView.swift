@@ -96,7 +96,7 @@ struct MoltyView: View {
             // Metrics
             metricRow(label: "Session Cost", value: String(format: "$%.2f", data.sessionCost))
             divider
-            metricRow(label: "Tokens used", value: data.formattedTokens)
+            metricRow(label: "Context", value: data.formattedTokens)
             divider
             HStack {
                 Text("Monthly")

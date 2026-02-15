@@ -17,6 +17,7 @@ class SessionDataProvider: ObservableObject {
     @Published var hasActiveSession: Bool = false
     @Published var monthlyBudget: Double = 100.0
     @Published var monthlySpend: Double = 0
+    @Published var contextLimit: Int = 0
 
     var budgetPercentUsed: Double { monthlyBudget > 0 ? min(1.0, monthlySpend / monthlyBudget) : 0 }
 
@@ -41,10 +42,16 @@ class SessionDataProvider: ObservableObject {
     }
 
     var formattedTokens: String {
-        if totalTokens >= 1_000_000 {
-            return String(format: "%.1fM", Double(totalTokens) / 1_000_000.0)
+        let used = formatTokenCount(totalTokens)
+        let limit = formatTokenCount(contextLimit)
+        return "\(used) / \(limit)"
+    }
+
+    private func formatTokenCount(_ count: Int) -> String {
+        if count >= 1_000_000 {
+            return String(format: "%.1fM", Double(count) / 1_000_000.0)
         }
-        return "\(totalTokens / 1000)k"
+        return "\(count / 1000)k"
     }
 
     var displayModelName: String {
@@ -106,6 +113,7 @@ class SessionDataProvider: ObservableObject {
             sessionDuration = 0
             burnRate = 0
             healthState = .healthy
+            contextLimit = 0
             return
         }
 
@@ -118,6 +126,7 @@ class SessionDataProvider: ObservableObject {
         cacheReadTokens = 0
         cacheWriteTokens = 0
         totalTokens = session.totalTokens
+        contextLimit = session.contextLimit
         modelName = session.model
         sessionDuration = 0
 
