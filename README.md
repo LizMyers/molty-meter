@@ -4,7 +4,7 @@ A floating macOS desktop widget that monitors AI session health and token spend 
 
 Originally built to monitor Anthropic Claude API spend, but works with any provider supported by [OpenClaw](https://github.com/openclaw).
 
-![Molty Meter](molty-intro.png)
+![Molty Meter](molty-hero.png)
 
 ## What You See
 
