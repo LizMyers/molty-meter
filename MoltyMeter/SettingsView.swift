@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 private let titleColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
 private let textColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
@@ -67,6 +68,31 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 15)
+
+            Spacer().frame(height: 32)
+
+            Button(action: {
+                if let url = URL(string: "https://console.anthropic.com/settings/cost") {
+                    NSWorkspace.shared.open(url)
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Text("View Cost Data")
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.system(size: 11))
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(textColor)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 15)
+
+            Spacer().frame(height: 8)
+
+            Text("Opens Cost Data on Anthropic")
+                .font(.system(size: 12))
+                .foregroundColor(textColor.opacity(0.6))
+                .padding(.horizontal, 15)
 
             Spacer().frame(height: 32)
 
