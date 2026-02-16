@@ -13,7 +13,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with back button
             HStack {
-                Button(action: { isShowingSettings = false }) {
+                Button(action: { saveBudget(); isShowingSettings = false }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(textColor)
@@ -40,33 +40,20 @@ struct SettingsView: View {
 
             Spacer().frame(height: 12)
 
-            HStack {
-                HStack {
-                    Text("$")
-                        .foregroundColor(textColor)
-                        .font(.system(size: 16, weight: .medium))
-                    TextField("", text: $budgetText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .frame(width: 70)
-                        .onSubmit { saveBudget() }
-                }
-                .padding(10)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(8)
-
-                Button(action: saveBudget) {
-                    Text("Save")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(Color.blue)
-                        .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
+            HStack(spacing: 4) {
+                Text("$")
+                    .foregroundColor(textColor)
+                    .font(.system(size: 18, weight: .medium))
+                TextField("", text: $budgetText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .frame(width: 60)
             }
+            .padding(.horizontal, 8)
+            .frame(height: 32)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(8)
             .padding(.horizontal, 15)
 
             Spacer().frame(height: 32)
@@ -128,6 +115,5 @@ struct SettingsView: View {
             config.monthlyBudget = value
             config.save()
         }
-        isShowingSettings = false
     }
 }
