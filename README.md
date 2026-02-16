@@ -1,45 +1,32 @@
 # Molty Meter
 
-**Know when to shed your shell.**
+**Meter your AI session activity and monthly spend.**
 
-A macOS menubar widget that monitors your AI coding session health and monthly API spend — so you can molt early and spend efficiently.
+A macOS desktop widget that puts your coding agent's context usage and Anthropic API spend right on your desktop — no digging through web dashboards, token math, or hidden log files.
 
 ![Molty Meter](MM01.png) ![Molty Meter](MM02.png) ![Molty Meter](MM03.png)
 
-## What It Does
+## Why You Need This
 
-Molty Meter tracks two things:
+Think of it like your water or electric meter. You might decide to shorten your showers — or you might not — but at least you know what's happening.
 
-1. **Session health** — How full is your context window? When it's bloated, you're paying more per message and risking forced compaction (where the system summarizes your history and you lose nuance). Molty tells you when to start a fresh session.
+AI coding agents run in the background, consuming tokens and racking up charges. Without a meter, you don't notice until the bill arrives. Molty puts the numbers where you can see them:
 
-2. **Monthly spend** — How much have you spent this month vs your budget? Molty fetches real cost data from the Anthropic Admin API and projects when you'll hit your limit.
-
-## The Insight
-
-Here's what most developers don't realize about Claude API sessions:
-
-**"Tokens used" is misleading.** It's not a cumulative counter — it's your *context window fill level*. And that number can go **down**.
-
-When your context hits the limit, the system automatically **compacts** your conversation — summarizing older history, replacing verbose messages with condensed versions, and dropping you back to ~50-60% capacity. You kept working. The AI kept responding. But you lost nuance — and **paid for compaction**.
-
-**Molting early = lean messages = efficient spend.**
+- **Monthly spend vs budget** — real billing data from Anthropic, not estimates
+- **Agent activity** — when the context gauge is moving, something is running and costing you money
+- **Budget forecast** — "On track" or the date you'll hit your limit at the current rate
 
 ## What You See
 
 **Two gauges:**
-- **Arc** — Session health (context window fill). When Molty says "Time to molt!", your session is getting heavy.
-- **Circle** — Monthly budget tracking. The "$" fills as you approach your limit.
+- **Arc** — Context window fill level for the active session. A full context = expensive messages.
+- **Circle** — Monthly budget usage. The "$" fills as you approach your limit.
 
 **Metrics:**
 - Context usage (current / limit)
-- Monthly spend vs budget
-- Forecast — projected budget exhaustion date
+- Monthly spend vs budget (click to open Anthropic cost page)
+- Forecast — "On track" or the date you'll exhaust your budget
 - Current model
-
-**Forecast** uses your daily spend rate to project forward:
-- **On track** — projected spend stays within your monthly budget
-- **A date** (e.g. "Feb 22") — the day you'll hit your budget at the current rate
-- **---** — no data yet
 
 ## Quick Start
 
@@ -50,17 +37,15 @@ swift build
 .build/debug/MoltyMeter
 ```
 
-That's it. Molty launches as a floating widget and starts monitoring.
+Molty launches as a floating widget and starts monitoring.
 
 ## Configuration
 
-Molty reads its config from `~/.molty-meter.json`. You can edit this file directly or use the in-app settings (click the gear icon).
+Molty reads `~/.molty-meter.json`. Edit it directly or use the in-app settings (gear icon).
 
-### Setting your budget
+### Budget
 
-Click the gear icon and enter your monthly budget. It auto-saves when you navigate back.
-
-Or edit the config directly:
+Click the gear icon, enter your monthly budget, tap back. It auto-saves.
 
 ```json
 {
@@ -68,19 +53,15 @@ Or edit the config directly:
 }
 ```
 
-### Adding your Anthropic Admin API key (recommended)
+### Anthropic Admin API key (recommended)
 
-This is the key step for accurate cost tracking. Without it, Molty falls back to estimating costs from local OpenClaw session data.
+For accurate cost tracking, add an Admin API key. Without it, Molty falls back to estimating costs from local session data.
 
-**Important:** This is an **Admin API key**, not a regular API key. It starts with `sk-ant-admin...` (not `sk-ant-api...`). Regular API keys will not work — the cost report endpoint requires admin access.
-
-To get one:
+**Important:** This must be an **Admin API key** (`sk-ant-admin...`), not a regular API key (`sk-ant-api...`).
 
 1. Go to [console.anthropic.com/settings/admin-keys](https://console.anthropic.com/settings/admin-keys)
-2. You must have the **admin role** in your organization
-3. Click **Create Key** and copy it
-
-Then add it to your config:
+2. You need the **admin role** in your organization
+3. Create a key and add it to your config:
 
 ```json
 {
@@ -89,41 +70,39 @@ Then add it to your config:
 }
 ```
 
-With an Admin API key, Molty calls the `/v1/organizations/cost_report` endpoint to get your actual monthly spend, broken down by model. It filters for Haiku costs (the model used by coding agents like OpenClaw) and caches results for 5 minutes.
+### Optional: Custom start date
 
-If the key is missing or the API call fails, Molty silently falls back to calculating costs from local OpenClaw session files.
+By default, Molty tracks spend from the 1st of each month. If you need to start tracking from a specific date (e.g. you switched API keys mid-month), add:
+
+```json
+{
+  "monthlyBudget": 200,
+  "anthropicAdminKey": "sk-ant-admin01-your-key-here",
+  "costStartDate": "2026-02-12"
+}
+```
+
+Remove `costStartDate` when you no longer need it — Molty will default back to the 1st.
 
 ## How Cost Tracking Works
 
-Molty supports two cost data sources:
+Molty fetches billing data from Anthropic's `/v1/organizations/cost_report` endpoint. This returns exact amounts — the same numbers you see on your [Anthropic cost page](https://console.anthropic.com/settings/cost).
 
-| Source | How it works | Accuracy |
-|--------|-------------|----------|
-| **Anthropic Admin API** | Fetches real billing data from Anthropic's cost_report endpoint | Exact (matches your invoice) |
-| **OpenClaw (fallback)** | Parses cost data from local session JSONL files in `~/.openclaw/agents/` | Good estimate |
+It filters for Haiku costs (the model used by most coding agents) and caches results for 30 minutes.
 
-The Admin API approach works for any Anthropic API usage tied to your organization — not just OpenClaw. If you're running Claude through any tool that uses your API key, Molty will pick up the spend.
+**Note on timing:** The cost report endpoint reflects finalized billing data. Charges from the current day may take a few hours to appear. By the next morning, Molty's numbers will match the console exactly.
+
+If no Admin API key is configured, Molty falls back to parsing cost data from local OpenClaw session files (`~/.openclaw/agents/`).
 
 ## Session Monitoring
 
-Molty monitors active sessions by watching OpenClaw's session data at `~/.openclaw/agents/`. It uses file system events for near-instant updates, with a 10-second fallback poll.
+Molty watches OpenClaw's session data at `~/.openclaw/agents/` using file system events for near-instant updates, with a 10-second fallback poll.
 
-OpenClaw works with multiple AI providers (Claude, GPT, etc.), so Molty's session health gauge works regardless of which model your agent is using.
-
-## Customizing for Your Setup
-
-Molty was built for monitoring Anthropic API spend via OpenClaw, but the architecture is straightforward to adapt:
-
-- **Different provider?** The session monitor reads from `~/.openclaw/agents/` — if your tool writes session data there, Molty picks it up automatically.
-- **Different cost source?** The monthly spend logic lives in `SessionDataProvider.swift:refresh()`. You can swap in your own cost calculation.
-- **Different model filter?** `AnthropicCostFetcher.swift` filters for "Haiku" in the cost report. Change the filter string to match your model (e.g. "Sonnet", "Opus").
+When you see the context gauge climbing, that's an agent working — and spending. If it's filling up fast and you didn't expect it, that's your cue to check what's running.
 
 ## Start on Login
 
-Want Molty waiting for you every morning? Add a LaunchAgent:
-
 ```bash
-# Create the plist (update the path to match your setup)
 cat > ~/Library/LaunchAgents/com.molty.meter.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -143,23 +122,20 @@ cat > ~/Library/LaunchAgents/com.molty.meter.plist << 'EOF'
 </plist>
 EOF
 
-# Enable it
 launchctl load ~/Library/LaunchAgents/com.molty.meter.plist
 ```
 
-To disable auto-launch later:
+To disable: `launchctl unload ~/Library/LaunchAgents/com.molty.meter.plist`
 
-```bash
-launchctl unload ~/Library/LaunchAgents/com.molty.meter.plist
-```
+## Why "Molty"?
 
-Molty remembers its window position between restarts.
+Context windows are like shells — when they get too full, the system compacts (summarizes) your conversation to free up space. You lose nuance, and you pay for the compaction. Starting a fresh session early ("molting") keeps your messages lean and your spend efficient.
 
 ## Requirements
 
 - macOS 13+
 - Swift 5.9+
-- OpenClaw (for session monitoring — reads from `~/.openclaw/agents/`)
+- OpenClaw (for session monitoring)
 - Anthropic Admin API key (optional, for accurate cost tracking)
 
 ## License

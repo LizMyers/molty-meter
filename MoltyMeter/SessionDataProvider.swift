@@ -110,7 +110,7 @@ class SessionDataProvider: ObservableObject {
         if let adminKey = config.anthropicAdminKey, !adminKey.isEmpty {
             moltyLog("[MoltyAPI] Admin key found, launching fetch task")
             Task { [weak self] in
-                if let cost = await AnthropicCostFetcher.fetchMonthlyHaikuCost(adminKey: adminKey, apiKeyId: config.anthropicApiKeyId) {
+                if let cost = await AnthropicCostFetcher.fetchMonthlyHaikuCost(adminKey: adminKey, costStartDate: config.costStartDate) {
                     moltyLog("[MoltyAPI] Got cost: $\(String(format: "%.2f", cost))")
                     self?.monthlySpend = cost
                 } else {
