@@ -1,45 +1,58 @@
 # Molty Meter
 
-A floating macOS desktop widget that monitors AI session health and token spend in real time. Originally built to monitor Anthropic Claude API spend, but works with any provider supported by [OpenClaw](https://github.com/openclaw).
+Molty Meter is a macOS widget that monitors your Moltbot sessions in real time. It pulls session data from your local [OpenClaw](https://openclaw.ai) install and monthly cost data from the Anthropic Admin API.
 
 <img src="molty-hero.png" alt="Molty Meter" width="75%">
 
-## What You See
+**The arc** shows how full your context window is. As it fills, Molty's status changes:
 
-**Two gauges:**
-- **Arc** — Session health (context window fill). When Molty says "Time to molt!", your session is getting heavy.
-- **Circle** — Monthly budget tracking. The "$" fills as you approach your limit.
+| Context Used | Status | What It Means |
+|:---|:---|:---|
+| < 40% | *"Let's go!"* | Fresh session, full speed ahead |
+| 40–65% | *"Cruising"* | Smooth sailing |
+| 65–85% | *"Wrap it up"* | Context is getting heavy, messages cost more |
+| > 85% | *"Time to molt!"* | Start a fresh session now |
 
-## Easy Install
+**The circle** fills as your monthly spend approaches your budget.
+
+**The forecast** tells you whether you'll get through the month under budget at your current burn rate. If you're on pace, it says "On track". If you're projected to go over, Molty estimates when you'll hit your limit — like "Feb 22".
+
+## Why It Matters
+
+As your context window fills up, every message gets more expensive. The model processes all prior context on every turn.
+
+When the context window hits its limit, your provider compacts (summarizes) the conversation to make room. This buys you more turns, but the compaction itself burns tokens — and the summarized context is lossy. You lose nuance, the model starts repeating itself, and you're paying more for worse results.
+
+That's the molt. When Molty warns you, start a fresh session. Clean context, sharper responses, cheaper messages. Session hygiene is budget hygiene.
+
+## Add Molty Meter to Your Desktop
+
+### 1. Clone and build
 
 ```bash
 git clone https://github.com/lizmyers/molty-meter.git
-cd molty-meter
-swift build
+cd molty-meter && swift build
+```
+
+### 2. Launch
+
+```bash
 .build/debug/MoltyMeter
 ```
 
-## Configuration
+Molty appears on your desktop. Drag it wherever you want — it remembers its position between launches.
 
-Molty reads `~/.molty-meter.json`. You can set your budget from the in-app Settings (gear icon), or edit the file directly.
+### 3. Connect your data
 
-### Budget
+Molty reads session data from [OpenClaw](https://github.com/openclaw), which runs locally and captures token usage from your AI sessions. This is where context window and session cost data comes from — all local, read from `~/.openclaw/agents/`.
 
-Click the gear icon, enter your monthly budget, tap back. It auto-saves.
+OpenClaw works with Claude subscriptions (Pro, Max) — not just API keys. Run `openclaw onboard` and choose your auth method. [Setup details here.](https://docs.openclaw.ai/providers/anthropic)
 
-```json
-{
-  "monthlyBudget": 200
-}
-```
+### 4. Add your Anthropic Admin API key (recommended)
 
-### Anthropic Admin API key (recommended)
+For monthly cost tracking, Molty pulls real billing data from Anthropic's API — the same numbers on your [cost page](https://console.anthropic.com/settings/cost). Molty refreshes this every 30 minutes. Current-day costs may lag slightly as billing data syncs on Anthropic's side.
 
-For accurate cost tracking, add an [Admin API key](https://console.anthropic.com/settings/admin-keys). This gives Molty exact billing data — the same numbers you see on your Anthropic cost page.
-
-**Important:** This must be an **Admin API key** (`sk-ant-admin...`), not a regular API key (`sk-ant-api...`). You need the **admin role** in your Anthropic organization to create one.
-
-Add it to `~/.molty-meter.json`:
+Edit `~/.molty-meter.json`:
 
 ```json
 {
@@ -48,61 +61,42 @@ Add it to `~/.molty-meter.json`:
 }
 ```
 
-Without an admin key, Molty falls back to estimating costs from local OpenClaw session files at `~/.openclaw/agents/`. This works but may be less precise.
+**Important:** This must be an **Admin API key** (`sk-ant-admin...`), not a regular API key. You need the **admin role** in your Anthropic org to [create one](https://console.anthropic.com/settings/admin-keys).
 
-## Launch the Desktop Widget on Mac OS
+Don't have an admin key? Molty still works — it estimates monthly costs from local OpenClaw session data instead.
 
-Want Molty waiting for you every morning? Add it to your Login Items:
+### 5. Start on login (optional)
 
-**Option 1: System Settings (easiest)**
-1. Open **System Settings → General → Login Items**
+1. Open **System Settings > General > Login Items**
 2. Click **+** under "Open at Login"
 3. Navigate to your MoltyMeter build and select it
 
-**Option 2: LaunchAgent (for CLI fans)**
+## Works With Your Provider
 
-```bash
-# Create the plist
-cat > ~/Library/LaunchAgents/com.molty.meter.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.molty.meter</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/full/path/to/molty-meter/.build/debug/MoltyMeter</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-EOF
+Molty Meter works with any provider supported by OpenClaw. Session data (context window, tokens, model) comes from your local OpenClaw install automatically. For monthly cost tracking, it depends on what your provider offers:
 
-# Load it
-launchctl load ~/Library/LaunchAgents/com.molty.meter.plist
-```
+| Provider | Session Data | Monthly Cost Data | What You Need |
+|:---|:---|:---|:---|
+| **Anthropic** | Via OpenClaw | [Admin API](https://docs.anthropic.com/en/api/usage-cost-api) | Admin API key (`sk-ant-admin...`) |
+| **OpenAI** | Via OpenClaw | [Costs API](https://platform.openai.com/docs/api-reference/usage) | Org Admin API key |
+| **OpenRouter** | Via OpenClaw | [Activity API](https://openrouter.ai/docs/api/reference/overview) | Same API key (`sk-or-...`) |
+| **AWS Bedrock** | Via OpenClaw | [Cost Explorer API](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-api.html) | IAM credentials |
+| **Google Gemini** | Via OpenClaw | [Cloud Billing API](https://ai.google.dev/gemini-api/docs/billing) | GCP service account |
+| **Mistral** | Via OpenClaw | No API (console only) | Estimated from tokens |
+| **Ollama** | Via OpenClaw | Free (local) | — |
 
-Replace `/full/path/to/` with your actual path. Molty will be there when you log in.
+Molty currently has a built-in integration for the Anthropic Admin API. Other provider billing integrations are on the roadmap. Without a billing API, Molty estimates costs from token counts in your session data.
 
-## The Philosophy
+You can set your budget from the in-app Settings (gear icon) instead of editing the JSON file.
 
-**Session hygiene is budget hygiene.**
+## Just Want Token Usage?
 
-Don't wait for auto-compaction. When Molty warns you, wrap up and start fresh. You'll:
-- Keep full control of your context
-- Avoid surprise summarization
-- Send leaner messages
-- Spend less per interaction
-
-The arc and circle work together: healthy sessions lead to healthy budgets.
+If you only want to surface token usage, without cost tracking, check out [Token Ticker](https://github.com/lizmyers/token-ticker). It's a simple widget that reads session data directly from OpenClaw.
 
 ## Requirements
 
 - macOS 13+
-- OpenClaw (reads from `~/.openclaw/agents/`)
-- An Anthropic API key (and the desire to spend it wisely)
+- [OpenClaw](https://github.com/openclaw) (reads from `~/.openclaw/agents/`)
 
 ## License
 
@@ -110,4 +104,4 @@ MIT
 
 ---
 
-*Built by [Liz Myers](https://github.com/lizmyers/) with help from Claude. Shell yeah!*
+*Built by [Liz Myers](https://github.com/lizmyers/) with help from Claude and Molty — Shell yeah!*
