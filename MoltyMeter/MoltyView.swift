@@ -109,6 +109,12 @@ struct MoltyView: View {
                     .font(.system(size: 14, weight: .semibold))
             }
             .padding(.vertical, 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if let url = URL(string: "https://console.anthropic.com/settings/cost") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
             divider
             metricRow(label: "Forecast", value: data.forecastText)
             divider
