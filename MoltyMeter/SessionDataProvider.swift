@@ -1,9 +1,19 @@
 import Foundation
 import Combine
 
+private func moltyLog(_ msg: String) {
+    let logFile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".molty-debug.log")
+    let line = "\(Date()): \(msg)\n"
+    if let data = line.data(using: .utf8) {
+        if FileManager.default.fileExists(atPath: logFile.path),
+           let fh = try? FileHandle(forWritingTo: logFile) {
+            fh.seekToEndOfFile(); fh.write(data); fh.closeFile()
+        } else { try? data.write(to: logFile) }
+    }
+}
+
 @MainActor
 class SessionDataProvider: ObservableObject {
-    @Published var sessionCost: Double = 0
     @Published var totalTokens: Int = 0
     @Published var inputTokens: Int = 0
     @Published var outputTokens: Int = 0
@@ -14,11 +24,11 @@ class SessionDataProvider: ObservableObject {
     @Published var burnRate: Double = 0  // dollars per minute
     @Published var healthState: SessionHealthState = .healthy
     @Published var currentAdvice: String = "Let's go!"
-    @Published var isRising: Bool = false
     @Published var hasActiveSession: Bool = false
     @Published var monthlyBudget: Double = 100.0
     @Published var monthlySpend: Double = 0
     @Published var contextLimit: Int = 0
+    @Published var forecastText: String = "—"
 
     var budgetPercentUsed: Double { monthlyBudget > 0 ? min(1.0, monthlySpend / monthlyBudget) : 0 }
 
@@ -67,7 +77,6 @@ class SessionDataProvider: ObservableObject {
         return "\(family) \(version)"
     }
 
-    private var previousCost: Double = 0
     private var previousTotalTokens: Int = 0
     private var fallbackTimer: Timer?
     private var fileMonitorSource: DispatchSourceFileSystemObject?
@@ -97,14 +106,31 @@ class SessionDataProvider: ObservableObject {
         let config = MoltyConfig.load()
         monthlyBudget = config.monthlyBudget
 
-        // Calculate monthly spend (OpenClaw only - Claude Code is subscription, not API billed)
-        monthlySpend = ClaudeDataParser.openClawMonthlyCost()
+        // Monthly spend: use Anthropic Admin API if key available, else OpenClaw
+        if let adminKey = config.anthropicAdminKey, !adminKey.isEmpty {
+            moltyLog("[MoltyAPI] Admin key found, launching fetch task")
+            Task { [weak self] in
+                if let cost = await AnthropicCostFetcher.fetchMonthlyHaikuCost(adminKey: adminKey) {
+                    moltyLog("[MoltyAPI] Got cost: $\(String(format: "%.2f", cost))")
+                    self?.monthlySpend = cost
+                } else {
+                    moltyLog("[MoltyAPI] Fetch returned nil, falling back to OpenClaw")
+                    self?.monthlySpend = ClaudeDataParser.openClawMonthlyCost()
+                }
+                self?.forecastText = self?.calculateForecast() ?? "—"
+            }
+        } else {
+            moltyLog("[MoltyAPI] No admin key, using OpenClaw")
+            monthlySpend = ClaudeDataParser.openClawMonthlyCost()
+        }
+
+        // Calculate forecast
+        forecastText = calculateForecast()
 
         // Load active OpenClaw session
         let openclawSessions = ClaudeDataParser.loadOpenClawSessions()
         guard let session = openclawSessions.first else {
             hasActiveSession = false
-            sessionCost = 0
             totalTokens = 0
             inputTokens = 0
             outputTokens = 0
@@ -119,7 +145,6 @@ class SessionDataProvider: ObservableObject {
         }
 
         hasActiveSession = true
-        previousCost = sessionCost
         previousTotalTokens = totalTokens
 
         inputTokens = session.inputTokens
@@ -131,20 +156,43 @@ class SessionDataProvider: ObservableObject {
         modelName = session.model
         sessionDuration = 0
 
-        // Get actual cost from JSONL file (pre-calculated by OpenClaw)
-        sessionCost = ClaudeDataParser.parseOpenClawSessionTotalCost(jsonlPath: session.sessionFile)
-
-        // Trend
-        if previousCost > 0 {
-            isRising = sessionCost > previousCost
-        }
-
         // Health based on context usage for OpenClaw
         let newHealthState = SessionHealthState.fromContextPercent(session.contextPercent)
         if newHealthState != healthState {
             healthState = newHealthState
             currentAdvice = healthState.advice
         }
+    }
+
+    private func calculateForecast() -> String {
+        guard monthlySpend > 0, monthlyBudget > 0 else { return "—" }
+
+        let now = Date()
+        let calendar = Calendar.current
+        let day = calendar.component(.day, from: now)
+        let daysElapsed = max(Double(day), 1.0)
+        let dailyRate = monthlySpend / daysElapsed
+
+        guard let range = calendar.range(of: .day, in: .month, for: now) else { return "—" }
+        let daysInMonth = Double(range.count)
+        let projectedMonthlySpend = dailyRate * daysInMonth
+
+        if projectedMonthlySpend <= monthlyBudget {
+            return "On track"
+        }
+
+        // Calculate the day the budget will be exhausted: budget / dailyRate
+        let exhaustionDay = monthlyBudget / dailyRate
+        guard exhaustionDay <= daysInMonth else { return "On track" }
+
+        // Build the date for that day in the current month
+        var components = calendar.dateComponents([.year, .month], from: now)
+        components.day = Int(exhaustionDay.rounded(.up))
+        guard let exhaustionDate = calendar.date(from: components) else { return "—" }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: exhaustionDate)
     }
 
     // MARK: - File Monitoring
