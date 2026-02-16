@@ -85,11 +85,14 @@ struct SettingsView: View {
                 .foregroundColor(textColor)
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
             .padding(.horizontal, 15)
 
             Spacer().frame(height: 8)
 
-            Text("Opens Cost Data on Anthropic")
+            Text("Opens cost data on Anthropic")
                 .font(.system(size: 12))
                 .foregroundColor(textColor.opacity(0.6))
                 .padding(.horizontal, 15)

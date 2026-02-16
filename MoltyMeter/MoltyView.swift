@@ -110,6 +110,9 @@ struct MoltyView: View {
             }
             .padding(.vertical, 8)
             .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
             .onTapGesture {
                 if let url = URL(string: "https://console.anthropic.com/settings/cost") {
                     NSWorkspace.shared.open(url)
@@ -140,6 +143,9 @@ struct MoltyView: View {
                 }
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
