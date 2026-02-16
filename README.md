@@ -2,38 +2,11 @@
 
 **Know when to shed your shell.**
 
-A floating macOS desktop widget that monitors AI session health in real-time. Molty the lobster watches your context window, tracks your spend, and tells you when it's time to start fresh — before your session gets heavy and expensive.
+A floating macOS desktop widget that monitors AI session health and token spend in real time.
 
 Originally built to monitor Anthropic Claude API spend, but works with any provider supported by [OpenClaw](https://github.com/openclaw).
 
 ![Molty Meter](molty-intro.png)
-
-## The Insight
-
-Here's what most developers don't realize about Claude API sessions:
-
-**"Tokens used" is misleading.** It's not a cumulative counter — it's your *context window fill level*. And that number can go **down**.
-
-When your context hits the limit, the system automatically **compacts** your conversation:
-- Summarizes older history
-- Replaces verbose messages with condensed versions
-- Drops you back to ~50-60% capacity
-
-You kept working. The AI kept responding. But you lost nuance — and **paid for compaction**.
-
-That's the hidden cost: summarizing 200k tokens of history isn't free. It's token debt. The longer you wait, the more you pay to compress.
-
-**Molty Meter makes this visible.**
-
-## Why "Molt"?
-
-Like a lobster outgrowing its shell, AI sessions get heavy and sluggish. The fuller your context window:
-- More tokens sent with every message
-- Higher cost per interaction
-- Slower responses
-- Eventually: forced compaction
-
-**Molting early = lean messages = efficient spend.**
 
 ## What You See
 
@@ -41,15 +14,7 @@ Like a lobster outgrowing its shell, AI sessions get heavy and sluggish. The ful
 - **Arc** — Session health (context window fill). When Molty says "Time to molt!", your session is getting heavy.
 - **Circle** — Monthly budget tracking. The "$" fills as you approach your limit.
 
-**Metrics:**
-- Session cost
-- Context usage (current / limit)
-- Monthly spend vs budget
-- Current model
-
-**Advice:** Rotating lobster-themed phrases. "Shell yeah!" when you're fresh. "Butter's melting!" when it's time to bail.
-
-## Quick Start
+## Easy Install
 
 ```bash
 git clone https://github.com/lizmyers/molty-meter.git
@@ -58,9 +23,9 @@ swift build
 .build/debug/MoltyMeter
 ```
 
-Click the gear to set your monthly budget. Molty watches your OpenClaw sessions automatically.
+Set your monthly budget in Settings. Molty watches your OpenClaw sessions automatically.
 
-## Start on Login
+## Launch the Desktop Widget on Mac OS
 
 Want Molty waiting for you every morning? Add it to your Login Items:
 
@@ -113,43 +78,6 @@ The arc and circle work together: healthy sessions lead to healthy budgets.
 - macOS 13+
 - OpenClaw (reads from `~/.openclaw/agents/`)
 - An Anthropic API key (and the desire to spend it wisely)
-
-## Lobster Wisdom
-
-| State | Molty Says |
-|-------|------------|
-| Fresh | "Shell yeah!", "Claws out!", "Seize the bait!" |
-| Cruising | "In flow", "Riding the tide", "Making waves" |
-| Warning | "Riptides ahead", "Getting crabby", "Watch the trap" |
-| Critical | "Molt o'clock", "Butter's melting", "Escape the pot!" |
-
-## Make It Your Own
-
-Molty Meter was built for Claude, but the architecture is straightforward to adapt to any provider or model.
-
-### Add a new model's pricing
-
-Open `MoltyMeter/CostCalculator.swift` and add an entry to the `pricing` dictionary:
-
-```swift
-"gpt-4o": ModelPricing(
-    inputPerMillion: 2.50, outputPerMillion: 10.00,
-    cacheReadPerMillion: 1.25, cacheWritePerMillion: 0
-),
-```
-
-Models are matched by prefix, so `"gpt-4o"` will match `"gpt-4o-2025-01-01"` and similar variants.
-
-### Point to a different data directory
-
-The parser reads from `~/.claude/` by default. To change this, edit the `claudeDir` path in `MoltyMeter/ClaudeDataParser.swift`:
-
-```swift
-private static let claudeDir = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent(".your-tool-here")
-```
-
-Your tool needs to provide session data in JSONL format with `usage` fields (`input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`) on assistant messages.
 
 ### Adjust health thresholds
 
