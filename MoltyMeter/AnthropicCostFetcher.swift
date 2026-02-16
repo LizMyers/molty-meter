@@ -18,20 +18,22 @@ private func log(_ msg: String) {
 
 enum AnthropicCostFetcher {
 
-    // TODO: Remove after Feb 2026 — Haiku spend on old "Kensington-bot" key before switch to KennyBot2
-    private static let preKeyOffset: Double = 58.11
+    // Haiku 4.5 pricing (USD per million tokens) — verified against cost endpoint
+    private static let inputRate: Double        = 1.00  // uncached input
+    private static let cacheReadRate: Double     = 0.10  // cache read
+    private static let cacheWriteRate: Double    = 1.25  // ephemeral cache write
+    private static let outputRate: Double        = 5.00  // output
 
-    // Cache: only re-fetch at most every 5 minutes
+    // Cache: re-fetch every 30 minutes
     private static var cachedCost: Double?
     private static var lastFetchTime: Date?
 
-    private static var cachedDailyCosts: [DailySpend]?
-    private static var lastDailyFetchTime: Date?
-
-    static func fetchMonthlyHaikuCost(adminKey: String) async -> Double? {
-        // Return cached value if fetched within last 60 seconds
+    /// Fetch monthly Haiku cost from the usage endpoint.
+    /// Two-pass: daily buckets for historical days + hourly buckets for today.
+    /// Filters by API key ID if provided for key-specific costs.
+    static func fetchMonthlyHaikuCost(adminKey: String, apiKeyId: String?) async -> Double? {
         if let cached = cachedCost, let lastFetch = lastFetchTime,
-           Date().timeIntervalSince(lastFetch) < 300 {
+           Date().timeIntervalSince(lastFetch) < 1800 {
             return cached
         }
 
@@ -39,130 +41,81 @@ enum AnthropicCostFetcher {
         let calendar = Calendar.current
         let now = Date()
 
-        guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else {
+        guard let monthStart = calendar.date(from: DateComponents(
+                  year: calendar.component(.year, from: now),
+                  month: calendar.component(.month, from: now),
+                  day: 1, hour: 0, minute: 0, second: 0)),
+              let todayStart = calendar.date(from: DateComponents(
+                  year: calendar.component(.year, from: now),
+                  month: calendar.component(.month, from: now),
+                  day: calendar.component(.day, from: now),
+                  hour: 0, minute: 0, second: 0)) else {
             return nil
         }
 
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
-        let endingAt = formatter.string(from: now)
+        formatter.timeZone = TimeZone(identifier: "UTC")
 
-        var totalCents: Double = 0
-        var currentStart = formatter.string(from: monthStart)
-        var pageCount = 0
+        // Pass 1: daily buckets from month start to start of today (UTC)
+        var historicalCost: Double = 0
+        let monthStartUTC = formatter.string(from: monthStart)
+        let todayStartUTC = formatter.string(from: todayStart)
+        let nowUTC = formatter.string(from: now)
 
-        while true {
-            pageCount += 1
-            var components = URLComponents(string: "https://api.anthropic.com/v1/organizations/cost_report")!
-            components.queryItems = [
-                URLQueryItem(name: "starting_at", value: currentStart),
-                URLQueryItem(name: "ending_at", value: endingAt),
-                URLQueryItem(name: "group_by[]", value: "description"),
-            ]
-
-            guard let url = components.url else { return nil }
-            log("[MoltyAPI] Page \(pageCount): \(url)")
-
-            var request = URLRequest(url: url)
-            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-            request.setValue(adminKey, forHTTPHeaderField: "x-api-key")
-
-            // Retry up to 3 times on 429
-            var data: Data?
-            var httpStatus: Int = 0
-            for attempt in 0..<3 {
-                if attempt > 0 {
-                    log("[MoltyAPI] Retry \(attempt) after 429")
-                    try? await Task.sleep(nanoseconds: UInt64(attempt * 2) * 1_000_000_000)
-                }
-                guard let (respData, response) = try? await URLSession.shared.data(for: request),
-                      let httpResponse = response as? HTTPURLResponse else {
-                    log("[MoltyAPI] Network request failed")
-                    return nil
-                }
-                httpStatus = httpResponse.statusCode
-                data = respData
-                if httpStatus != 429 { break }
-            }
-
-            log("[MoltyAPI] HTTP \(httpStatus)")
-            guard httpStatus == 200, let data else {
-                log("[MoltyAPI] Error: \(String(data: data ?? Data(), encoding: .utf8) ?? "nil")")
-                return nil
-            }
-
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return nil
-            }
-
-            if let days = json["data"] as? [[String: Any]] {
-                for day in days {
-                    guard let results = day["results"] as? [[String: Any]] else { continue }
-                    for entry in results {
-                        guard let description = entry["description"] as? String,
-                              description.localizedCaseInsensitiveContains("Haiku"),
-                              let amountStr = entry["amount"] as? String,
-                              let amount = Double(amountStr) else { continue }
-                        totalCents += amount
-                    }
-                }
-            }
-
-            // Paginate by decoding the next_page cursor as a new starting_at
-            let hasMore = json["has_more"] as? Bool ?? false
-            guard hasMore, let nextPage = json["next_page"] as? String,
-                  let decoded = Data(base64Encoded: nextPage.replacingOccurrences(of: "page_", with: "")),
-                  let nextStart = String(data: decoded, encoding: .utf8) else {
-                break
-            }
-            currentStart = nextStart
+        if todayStart > monthStart {
+            historicalCost = await fetchUsageCost(
+                adminKey: adminKey, apiKeyId: apiKeyId,
+                startingAt: monthStartUTC, endingAt: todayStartUTC,
+                bucketWidth: "1d", limit: 31, label: "historical"
+            ) ?? 0
         }
 
-        let result = max(0, totalCents / 100.0 - preKeyOffset)
-        log("[MoltyAPI] Total cents: \(totalCents), result: $\(String(format: "%.2f", result))")
+        // Pass 2: hourly buckets for today
+        let todayCost = await fetchUsageCost(
+            adminKey: adminKey, apiKeyId: apiKeyId,
+            startingAt: todayStartUTC, endingAt: nowUTC,
+            bucketWidth: "1h", limit: 24, label: "today"
+        ) ?? 0
 
-        cachedCost = result
+        let totalCost = historicalCost + todayCost
+        log("[MoltyAPI] Historical: $\(String(format: "%.2f", historicalCost)), Today: $\(String(format: "%.2f", todayCost)), Total: $\(String(format: "%.2f", totalCost))")
+
+        cachedCost = totalCost
         lastFetchTime = Date()
 
-        return result
+        return totalCost
     }
 
-    static func fetchDailyHaikuCosts(adminKey: String) async -> [DailySpend]? {
-        if let cached = cachedDailyCosts, let lastFetch = lastDailyFetchTime,
-           Date().timeIntervalSince(lastFetch) < 300 {
-            return cached
-        }
-
-        log("[MoltyAPI] fetchDailyHaikuCosts called")
-        let calendar = Calendar.current
-        let now = Date()
-
-        guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else {
-            return nil
-        }
-
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        let endingAt = formatter.string(from: now)
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-
-        var dailyTotals: [String: Double] = [:]
-        var currentStart = formatter.string(from: monthStart)
+    private static func fetchUsageCost(
+        adminKey: String, apiKeyId: String?,
+        startingAt: String, endingAt: String,
+        bucketWidth: String, limit: Int, label: String
+    ) async -> Double? {
+        var totalCost: Double = 0
+        var nextPage: String? = nil
         var pageCount = 0
 
         while true {
             pageCount += 1
-            var components = URLComponents(string: "https://api.anthropic.com/v1/organizations/cost_report")!
-            components.queryItems = [
-                URLQueryItem(name: "starting_at", value: currentStart),
+            var components = URLComponents(string: "https://api.anthropic.com/v1/organizations/usage_report/messages")!
+            var queryItems = [
+                URLQueryItem(name: "starting_at", value: startingAt),
                 URLQueryItem(name: "ending_at", value: endingAt),
-                URLQueryItem(name: "group_by[]", value: "description"),
+                URLQueryItem(name: "models[]", value: "claude-haiku-4-5-20251001"),
+                URLQueryItem(name: "bucket_width", value: bucketWidth),
+                URLQueryItem(name: "limit", value: "\(limit)"),
             ]
+            if let keyId = apiKeyId, !keyId.isEmpty {
+                queryItems.append(URLQueryItem(name: "api_key_ids[]", value: keyId))
+            }
+            if let page = nextPage {
+                queryItems.append(URLQueryItem(name: "page", value: page))
+            }
+            components.queryItems = queryItems
 
             guard let url = components.url else { return nil }
-            log("[MoltyAPI] Daily page \(pageCount): \(url)")
+            log("[MoltyAPI] \(label) page \(pageCount): \(url)")
 
             var request = URLRequest(url: url)
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
@@ -176,6 +129,7 @@ enum AnthropicCostFetcher {
                 }
                 guard let (respData, response) = try? await URLSession.shared.data(for: request),
                       let httpResponse = response as? HTTPURLResponse else {
+                    log("[MoltyAPI] \(label) request failed")
                     return nil
                 }
                 httpStatus = httpResponse.statusCode
@@ -183,52 +137,44 @@ enum AnthropicCostFetcher {
                 if httpStatus != 429 { break }
             }
 
+            log("[MoltyAPI] \(label) HTTP \(httpStatus)")
             guard httpStatus == 200, let data else { return nil }
 
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 return nil
             }
 
-            if let days = json["data"] as? [[String: Any]] {
-                for day in days {
-                    guard let startingAt = day["starting_at"] as? String,
-                          let results = day["results"] as? [[String: Any]] else { continue }
-
-                    // Parse the day date from the starting_at ISO timestamp
-                    let dayDate: String
-                    if let date = formatter.date(from: startingAt) {
-                        dayDate = dateFormatter.string(from: date)
-                    } else {
-                        dayDate = String(startingAt.prefix(10))
-                    }
-
+            if let buckets = json["data"] as? [[String: Any]] {
+                for bucket in buckets {
+                    guard let results = bucket["results"] as? [[String: Any]] else { continue }
                     for entry in results {
-                        guard let description = entry["description"] as? String,
-                              description.localizedCaseInsensitiveContains("Haiku"),
-                              let amountStr = entry["amount"] as? String,
-                              let amount = Double(amountStr) else { continue }
-                        dailyTotals[dayDate, default: 0] += amount
+                        totalCost += costFromTokens(entry)
                     }
                 }
             }
 
             let hasMore = json["has_more"] as? Bool ?? false
-            guard hasMore, let nextPage = json["next_page"] as? String,
-                  let decoded = Data(base64Encoded: nextPage.replacingOccurrences(of: "page_", with: "")),
-                  let nextStart = String(data: decoded, encoding: .utf8) else {
-                break
-            }
-            currentStart = nextStart
+            guard hasMore, let page = json["next_page"] as? String else { break }
+            nextPage = page
         }
 
-        let result = dailyTotals.map { DailySpend(date: $0.key, sessions: 0, cost: $0.value / 100.0) }
-            .sorted { $0.date < $1.date }
+        return totalCost
+    }
 
-        log("[MoltyAPI] Daily costs: \(result.count) days")
+    private static func costFromTokens(_ entry: [String: Any]) -> Double {
+        let uncached = entry["uncached_input_tokens"] as? Int ?? 0
+        let cacheRead = entry["cache_read_input_tokens"] as? Int ?? 0
+        let output = entry["output_tokens"] as? Int ?? 0
 
-        cachedDailyCosts = result
-        lastDailyFetchTime = Date()
+        var cacheWrite = 0
+        if let cacheCreation = entry["cache_creation"] as? [String: Any] {
+            cacheWrite += cacheCreation["ephemeral_5m_input_tokens"] as? Int ?? 0
+            cacheWrite += cacheCreation["ephemeral_1h_input_tokens"] as? Int ?? 0
+        }
 
-        return result
+        return (Double(uncached) * inputRate
+              + Double(cacheRead) * cacheReadRate
+              + Double(cacheWrite) * cacheWriteRate
+              + Double(output) * outputRate) / 1_000_000.0
     }
 }
