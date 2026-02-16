@@ -104,21 +104,6 @@ The arc and circle work together: healthy sessions lead to healthy budgets.
 - OpenClaw (reads from `~/.openclaw/agents/`)
 - An Anthropic API key (and the desire to spend it wisely)
 
-### Adjust health thresholds
-
-Edit `MoltyMeter/SessionHealthState.swift` to tune when Molty warns you:
-
-```swift
-static func from(cost: Double, totalTokens: Int) -> SessionHealthState {
-    if cost > 5.0 || totalTokens > 1_000_000 { return .heavy }
-    if cost > 3.50 || totalTokens > 750_000 { return .warning }
-    if cost > 2.0 || totalTokens > 500_000 { return .watching }
-    return .healthy
-}
-```
-
-Lower the thresholds for cheaper models, raise them for expensive ones.
-
 ## License
 
 MIT
