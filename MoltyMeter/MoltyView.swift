@@ -81,7 +81,7 @@ struct MoltyView: View {
 
             // Advice row
             HStack {
-                Text("Advice")
+                Text("Status")
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(textColor)
                 Spacer()
@@ -95,8 +95,6 @@ struct MoltyView: View {
             divider
 
             // Metrics
-            metricRow(label: "Session Cost", value: String(format: "$%.2f", data.sessionCost))
-            divider
             metricRow(label: "Context", value: data.formattedTokens)
             divider
             HStack {
@@ -104,14 +102,15 @@ struct MoltyView: View {
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(textColor)
                 Spacer()
-                Text(String(format: "$%.2f", data.monthlySpend))
-                    .font(.system(size: 14, weight: .semibold))
+                (Text(String(format: "$%.2f", data.monthlySpend))
                     .foregroundColor(.white)
-                Text(String(format: " / $%.0f", data.monthlyBudget))
+                + Text(String(format: "/$%.0f", data.monthlyBudget))
+                    .foregroundColor(textColor))
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(textColor)
             }
             .padding(.vertical, 8)
+            divider
+            metricRow(label: "Forecast", value: data.forecastText)
             divider
             metricRow(label: "Model", value: data.displayModelName)
             divider

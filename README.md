@@ -1,10 +1,37 @@
 # Molty Meter
 
-A floating macOS desktop widget that monitors AI session health and token spend in real time.
+**Know when to shed your shell.**
 
-Originally built to monitor Anthropic Claude API spend, but works with any provider supported by [OpenClaw](https://github.com/openclaw).
+A macOS widget that monitors your Claude API session health and monthly spend — so you can molt early and spend efficiently.
 
-![Molty Meter](molty-intro.png)
+![Molty Meter](MM01.png) ![Molty Meter](MM02.png) ![Molty Meter](MM03.png)
+
+## The Insight
+
+Here's what most developers don't realize about Claude API sessions:
+
+**"Tokens used" is misleading.** It's not a cumulative counter — it's your *context window fill level*. And that number can go **down**.
+
+When your context hits the limit, the system automatically **compacts** your conversation:
+- Summarizes older history
+- Replaces verbose messages with condensed versions
+- Drops you back to ~50-60% capacity
+
+You kept working. The AI kept responding. But you lost nuance — and **paid for compaction**.
+
+That's the hidden cost: summarizing 200k tokens of history isn't free. It's token debt. The longer you wait, the more you pay to compress.
+
+**Molty Meter makes this visible.**
+
+## Why "Molt"?
+
+Like a lobster outgrowing its shell, AI sessions get heavy and sluggish. The fuller your context window:
+- More tokens sent with every message
+- Higher cost per interaction
+- Slower responses
+- Eventually: forced compaction
+
+**Molting early = lean messages = efficient spend.**
 
 ## What You See
 
@@ -12,7 +39,18 @@ Originally built to monitor Anthropic Claude API spend, but works with any provi
 - **Arc** — Session health (context window fill). When Molty says "Time to molt!", your session is getting heavy.
 - **Circle** — Monthly budget tracking. The "$" fills as you approach your limit.
 
-## Easy Install
+**Metrics:**
+- Context usage (current / limit)
+- Monthly spend vs budget
+- Forecast — projected budget exhaustion date
+- Current model
+
+**Forecast** uses your daily spend rate to project forward:
+- **On track** — projected spend stays within your monthly budget
+- **A date** (e.g. "Feb 22") — the day you'll hit your budget at the current rate
+- **—** — no data yet
+
+## Quick Start
 
 ```bash
 git clone https://github.com/lizmyers/molty-meter.git
@@ -21,43 +59,44 @@ swift build
 .build/debug/MoltyMeter
 ```
 
-Set your monthly budget in Settings. Molty watches your OpenClaw sessions automatically.
+Click the gear to set your monthly budget. Molty watches your OpenClaw sessions automatically.
 
-## Launch the Desktop Widget on Mac OS
+## Start on Login
 
-Want Molty waiting for you every morning? Add it to your Login Items:
-
-**Option 1: System Settings (easiest)**
-1. Open **System Settings → General → Login Items**
-2. Click **+** under "Open at Login"
-3. Navigate to your MoltyMeter build and select it
-
-**Option 2: LaunchAgent (for CLI fans)**
+Want Molty waiting for you every morning? Add a LaunchAgent:
 
 ```bash
-# Create the plist
-cat > ~/Library/LaunchAgents/com.molty.meter.plist << 'EOF'
+# Create the plist (update the path to match your setup)
+cat > ~/Library/LaunchAgents/com.liz.molty-meter.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.molty.meter</string>
+    <string>com.liz.molty-meter</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/full/path/to/molty-meter/.build/debug/MoltyMeter</string>
+        <string>/YOUR/PATH/TO/molty-meter/.build/debug/MoltyMeter</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <key>KeepAlive</key>
+    <false/>
 </dict>
 </plist>
 EOF
 
-# Load it
-launchctl load ~/Library/LaunchAgents/com.molty.meter.plist
+# Enable it
+launchctl load ~/Library/LaunchAgents/com.liz.molty-meter.plist
 ```
 
-Replace `/full/path/to/` with your actual path. Molty will be there when you log in.
+To disable auto-launch later:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.liz.molty-meter.plist
+```
+
+To re-enable, run the `load` command again. Molty remembers its window position between restarts.
 
 ## The Philosophy
 
@@ -75,22 +114,9 @@ The arc and circle work together: healthy sessions lead to healthy budgets.
 
 - macOS 13+
 - OpenClaw (reads from `~/.openclaw/agents/`)
-- An Anthropic API key (and the desire to spend it wisely)
+- Anthropic Claude API key
 
-### Adjust health thresholds
-
-Edit `MoltyMeter/SessionHealthState.swift` to tune when Molty warns you:
-
-```swift
-static func from(cost: Double, totalTokens: Int) -> SessionHealthState {
-    if cost > 5.0 || totalTokens > 1_000_000 { return .heavy }
-    if cost > 3.50 || totalTokens > 750_000 { return .warning }
-    if cost > 2.0 || totalTokens > 500_000 { return .watching }
-    return .healthy
-}
-```
-
-Lower the thresholds for cheaper models, raise them for expensive ones.
+**Note:** Cost data comes directly from OpenClaw, so any provider OpenClaw supports (Claude, GPT, etc.) should work.
 
 ## License
 

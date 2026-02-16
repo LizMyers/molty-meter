@@ -2,6 +2,7 @@ import Foundation
 
 struct MoltyConfig: Codable {
     var monthlyBudget: Double
+    var anthropicAdminKey: String?
 
     static let defaultBudget: Double = 100.0
 
