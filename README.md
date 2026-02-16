@@ -19,7 +19,36 @@ swift build
 .build/debug/MoltyMeter
 ```
 
-Set your monthly budget in Settings. Molty watches your OpenClaw sessions automatically.
+## Configuration
+
+Molty reads `~/.molty-meter.json`. You can set your budget from the in-app Settings (gear icon), or edit the file directly.
+
+### Budget
+
+Click the gear icon, enter your monthly budget, tap back. It auto-saves.
+
+```json
+{
+  "monthlyBudget": 200
+}
+```
+
+### Anthropic Admin API key (recommended)
+
+For accurate cost tracking, add an [Admin API key](https://console.anthropic.com/settings/admin-keys). This gives Molty exact billing data — the same numbers you see on your Anthropic cost page.
+
+**Important:** This must be an **Admin API key** (`sk-ant-admin...`), not a regular API key (`sk-ant-api...`). You need the **admin role** in your Anthropic organization to create one.
+
+Add it to `~/.molty-meter.json`:
+
+```json
+{
+  "monthlyBudget": 200,
+  "anthropicAdminKey": "sk-ant-admin01-your-key-here"
+}
+```
+
+Without an admin key, Molty falls back to estimating costs from local OpenClaw session files at `~/.openclaw/agents/`. This works but may be less precise.
 
 ## Launch the Desktop Widget on Mac OS
 
