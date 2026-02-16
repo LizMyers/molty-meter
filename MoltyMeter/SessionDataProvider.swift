@@ -119,6 +119,11 @@ class SessionDataProvider: ObservableObject {
                 }
                 self?.forecastText = self?.calculateForecast() ?? "—"
             }
+            // Show OpenClaw estimate immediately while API loads
+            let localCost = ClaudeDataParser.openClawMonthlyCost()
+            if monthlySpend == 0 && localCost > 0 {
+                monthlySpend = localCost
+            }
         } else {
             moltyLog("[MoltyAPI] No admin key, using OpenClaw")
             monthlySpend = ClaudeDataParser.openClawMonthlyCost()
@@ -236,8 +241,14 @@ class SessionDataProvider: ObservableObject {
         currentMonitoredPath = nil
     }
 
-    /// Re-establish file monitor if needed
+    /// Re-establish file monitor if the file appeared after launch
     private func checkFileMonitor() {
-        // OpenClaw sessions.json path is stable, no need to re-establish
+        let sessionsPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".openclaw/agents/main/sessions/sessions.json").path
+        // If not monitoring but file now exists, set up the monitor
+        if fileMonitorSource == nil && FileManager.default.fileExists(atPath: sessionsPath) {
+            currentMonitoredPath = sessionsPath
+            startFileMonitor(path: sessionsPath)
+        }
     }
 }

@@ -28,3 +28,7 @@ Thumbs.db
 *.ai
 *.eps
 *.webp
+
+# Extra/working files
+extra/
+*.csv
