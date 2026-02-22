@@ -4,6 +4,7 @@ struct MoltyConfig: Codable {
     var monthlyBudget: Double
     var anthropicAdminKey: String?
     var anthropicApiKeyId: String?
+    var openaiAdminKey: String?
     var costStartDate: String?  // "YYYY-MM-DD" — only count costs from this date
 
     static let defaultBudget: Double = 100.0

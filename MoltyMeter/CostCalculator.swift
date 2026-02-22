@@ -9,6 +9,7 @@ struct ModelPricing {
 
 struct CostCalculator {
     static let pricing: [String: ModelPricing] = [
+        // Anthropic Claude
         "claude-opus-4-6": ModelPricing(
             inputPerMillion: 15.00, outputPerMillion: 75.00,
             cacheReadPerMillion: 1.50, cacheWritePerMillion: 18.75
@@ -24,6 +25,27 @@ struct CostCalculator {
         "claude-haiku-4-5": ModelPricing(
             inputPerMillion: 0.80, outputPerMillion: 4.00,
             cacheReadPerMillion: 0.08, cacheWritePerMillion: 1.00
+        ),
+        // OpenAI GPT — update prices at https://platform.openai.com/docs/pricing
+        "gpt-4o-mini": ModelPricing(
+            inputPerMillion: 0.15, outputPerMillion: 0.60,
+            cacheReadPerMillion: 0.075, cacheWritePerMillion: 0.00
+        ),
+        "gpt-4o": ModelPricing(
+            inputPerMillion: 2.50, outputPerMillion: 10.00,
+            cacheReadPerMillion: 1.25, cacheWritePerMillion: 0.00
+        ),
+        "gpt-4-turbo": ModelPricing(
+            inputPerMillion: 10.00, outputPerMillion: 30.00,
+            cacheReadPerMillion: 0.00, cacheWritePerMillion: 0.00
+        ),
+        "gpt-4": ModelPricing(
+            inputPerMillion: 30.00, outputPerMillion: 60.00,
+            cacheReadPerMillion: 0.00, cacheWritePerMillion: 0.00
+        ),
+        "gpt-3.5-turbo": ModelPricing(
+            inputPerMillion: 0.50, outputPerMillion: 1.50,
+            cacheReadPerMillion: 0.00, cacheWritePerMillion: 0.00
         ),
     ]
 

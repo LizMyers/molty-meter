@@ -77,11 +77,12 @@ enum AnthropicCostFetcher {
             var httpStatus: Int = 0
             for attempt in 0..<3 {
                 if attempt > 0 {
-                    try? await Task.sleep(nanoseconds: UInt64(attempt * 2) * 1_000_000_000)
+                    try? await Task.sleep(nanoseconds: UInt64(attempt + 1) * 2_000_000_000)
                 }
                 guard let (respData, response) = try? await URLSession.shared.data(for: request),
                       let httpResponse = response as? HTTPURLResponse else {
-                    log("[MoltyAPI] Request failed")
+                    log("[MoltyAPI] Request failed (attempt \(attempt + 1)/3)")
+                    if attempt < 2 { continue }
                     return nil
                 }
                 httpStatus = httpResponse.statusCode

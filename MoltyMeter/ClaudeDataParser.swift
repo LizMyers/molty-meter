@@ -284,7 +284,8 @@ class ClaudeDataParser {
         return totalCost
     }
 
-    static func openClawMonthlyCost() -> Double {
+    /// Calculate monthly cost, optionally filtered by model prefix (e.g. "gpt", "claude")
+    static func openClawMonthlyCost(modelPrefix: String? = nil) -> Double {
         let agentsDir = openclawDir.appendingPathComponent("agents")
         guard let agentDirs = try? FileManager.default.contentsOfDirectory(
             at: agentsDir, includingPropertiesForKeys: nil
@@ -310,7 +311,7 @@ class ClaudeDataParser {
                 }
 
                 // Parse OpenClaw JSONL for cost
-                totalCost += parseOpenClawSessionCost(jsonlURL: file, startOfMonth: startOfMonth)
+                totalCost += parseOpenClawSessionCost(jsonlURL: file, startOfMonth: startOfMonth, modelPrefix: modelPrefix)
             }
         }
 
@@ -318,13 +319,14 @@ class ClaudeDataParser {
     }
 
     /// Parse OpenClaw session JSONL and calculate cost
-    private static func parseOpenClawSessionCost(jsonlURL: URL, startOfMonth: Date) -> Double {
+    private static func parseOpenClawSessionCost(jsonlURL: URL, startOfMonth: Date, modelPrefix: String? = nil) -> Double {
         guard let data = try? Data(contentsOf: jsonlURL),
               let content = String(data: data, encoding: .utf8) else { return 0 }
 
         let lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
         var totalCost: Double = 0
         var sessionStart: Date?
+        var sessionModel: String?
 
         for line in lines {
             guard let lineData = line.data(using: .utf8),
@@ -343,16 +345,28 @@ class ClaudeDataParser {
 
             // OpenClaw format: type=message, message.usage.cost.total
             if type == "message",
-               let message = obj["message"] as? [String: Any],
-               let usage = message["usage"] as? [String: Any],
-               let cost = usage["cost"] as? [String: Any],
-               let costTotal = cost["total"] as? Double {
-                totalCost += costTotal
+               let message = obj["message"] as? [String: Any] {
+                // Capture model from first message
+                if sessionModel == nil, let model = message["model"] as? String {
+                    sessionModel = model
+                }
+                if let usage = message["usage"] as? [String: Any],
+                   let cost = usage["cost"] as? [String: Any],
+                   let costTotal = cost["total"] as? Double {
+                    totalCost += costTotal
+                }
             }
         }
 
         // Only count if session started this month
         if let start = sessionStart, start < startOfMonth {
+            return 0
+        }
+
+        // Filter by model prefix if specified
+        if let prefix = modelPrefix,
+           let model = sessionModel,
+           !model.lowercased().hasPrefix(prefix.lowercased()) {
             return 0
         }
 

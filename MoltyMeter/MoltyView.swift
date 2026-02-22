@@ -19,7 +19,7 @@ struct MoltyView: View {
                 )
 
             // Settings view (back)
-            SettingsView(isShowingSettings: $isShowingSettings)
+            SettingsView(isShowingSettings: $isShowingSettings, modelName: data.modelName)
                 .opacity(isShowingSettings ? 1 : 0)
                 .rotation3DEffect(
                     .degrees(isShowingSettings ? 0 : -180),
@@ -114,7 +114,8 @@ struct MoltyView: View {
                 if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
             }
             .onTapGesture {
-                if let url = URL(string: "https://console.anthropic.com/settings/cost") {
+                if let costURL = ModelProvider.from(modelName: data.modelName).costURL,
+                   let url = URL(string: costURL) {
                     NSWorkspace.shared.open(url)
                 }
             }
@@ -137,7 +138,7 @@ struct MoltyView: View {
                         .font(.system(size: 13))
                         .foregroundColor(textColor.opacity(0.6))
                     Spacer()
-                    Text("v1.0")
+                    Text("v1.1")
                         .font(.system(size: 13))
                         .foregroundColor(textColor.opacity(0.6))
                 }

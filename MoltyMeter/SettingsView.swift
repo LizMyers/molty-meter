@@ -6,8 +6,13 @@ private let textColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255
 
 struct SettingsView: View {
     @Binding var isShowingSettings: Bool
+    var modelName: String = ""
     @State private var budgetText: String = ""
     @State private var config = MoltyConfig.load()
+
+    private var detectedProvider: ModelProvider {
+        ModelProvider.from(modelName: modelName)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -58,31 +63,42 @@ struct SettingsView: View {
 
             Spacer().frame(height: 32)
 
-            Button(action: {
-                if let url = URL(string: "https://console.anthropic.com/settings/cost") {
-                    NSWorkspace.shared.open(url)
+            if let costURL = detectedProvider.costURL {
+                Button(action: {
+                    if let url = URL(string: costURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Text("View Cost Data")
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 11))
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(textColor)
                 }
-            }) {
-                HStack(spacing: 4) {
-                    Text("View Cost Data")
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 11))
+                .buttonStyle(.plain)
+                .onHover { hovering in
+                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(textColor)
-            }
-            .buttonStyle(.plain)
-            .onHover { hovering in
-                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-            }
-            .padding(.horizontal, 15)
+                .padding(.horizontal, 15)
 
-            Spacer().frame(height: 8)
+                Spacer().frame(height: 8)
 
-            Text("Opens cost data on Anthropic")
-                .font(.system(size: 12))
+                Text("Opens cost data on \(detectedProvider.displayName)")
+                    .font(.system(size: 12))
+                    .foregroundColor(textColor.opacity(0.6))
+                    .padding(.horizontal, 15)
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12))
+                    Text("No cost dashboard for \(detectedProvider.displayName) models")
+                        .font(.system(size: 12))
+                }
                 .foregroundColor(textColor.opacity(0.6))
                 .padding(.horizontal, 15)
+            }
 
             Spacer().frame(height: 32)
 
