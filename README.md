@@ -2,7 +2,7 @@
 
 Molty Meter is a macOS widget that monitors your Moltbot sessions in real time. It pulls session data from your local [OpenClaw](https://openclaw.ai) install and monthly cost data from the Anthropic Admin API.
 
-<img src="molty-hero.png" alt="Molty Meter" width="75%">
+<img src="molty-hero-v1.1.png" alt="Molty Meter" width="100%">
 
 **The arc** shows how full your context window is. As it fills, Molty's status changes:
 
