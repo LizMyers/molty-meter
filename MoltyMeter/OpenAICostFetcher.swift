@@ -1,21 +1,5 @@
 import Foundation
 
-private let logFile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".molty-debug.log")
-private func log(_ msg: String) {
-    let line = "\(Date()): \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logFile.path) {
-            if let fh = try? FileHandle(forWritingTo: logFile) {
-                fh.seekToEndOfFile()
-                fh.write(data)
-                fh.closeFile()
-            }
-        } else {
-            try? data.write(to: logFile)
-        }
-    }
-}
-
 enum OpenAICostFetcher {
 
     // Cache: re-fetch every 30 minutes
@@ -31,7 +15,6 @@ enum OpenAICostFetcher {
             return cached
         }
 
-        log("[OpenAI] fetchMonthlyCost called")
         let calendar = Calendar.current
         let now = Date()
 
@@ -59,7 +42,6 @@ enum OpenAICostFetcher {
         ]
 
         guard let url = components.url else { return nil }
-        log("[OpenAI] URL: \(url)")
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -72,7 +54,6 @@ enum OpenAICostFetcher {
             }
             guard let (respData, response) = try? await URLSession.shared.data(for: request),
                   let httpResponse = response as? HTTPURLResponse else {
-                log("[OpenAI] Request failed (attempt \(attempt + 1)/3)")
                 if attempt < 2 { continue }
                 return nil
             }
@@ -81,13 +62,7 @@ enum OpenAICostFetcher {
             if httpStatus != 429 { break }
         }
 
-        log("[OpenAI] HTTP \(httpStatus)")
-        guard httpStatus == 200, let data else {
-            if let data, let body = String(data: data, encoding: .utf8) {
-                log("[OpenAI] Error body: \(body.prefix(200))")
-            }
-            return nil
-        }
+        guard httpStatus == 200, let data else { return nil }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
@@ -108,8 +83,6 @@ enum OpenAICostFetcher {
                 }
             }
         }
-
-        log("[OpenAI] Total: $\(String(format: "%.2f", totalDollars))")
 
         cachedCost = totalDollars
         lastFetchTime = Date()

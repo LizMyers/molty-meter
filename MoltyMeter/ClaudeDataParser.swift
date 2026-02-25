@@ -183,6 +183,27 @@ class ClaudeDataParser {
         }
     }
 
+    /// Read the model name from the last assistant message in a session JSONL file.
+    /// This reflects the actual model in use, even if it changed mid-session.
+    private static func lastModelFromJSONL(path: String) -> String? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let content = String(data: data, encoding: .utf8) else { return nil }
+
+        var lastModel: String?
+        for line in content.components(separatedBy: "\n") where !line.isEmpty {
+            guard let lineData = line.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                continue
+            }
+            // Both Claude Code and OpenClaw formats store model in message.model
+            if let message = obj["message"] as? [String: Any],
+               let model = message["model"] as? String {
+                lastModel = model
+            }
+        }
+        return lastModel
+    }
+
     /// Load active OpenClaw sessions from ~/.openclaw/agents/*/sessions/sessions.json
     static func loadOpenClawSessions() -> [OpenClawSession] {
         let agentsDir = openclawDir.appendingPathComponent("agents")
@@ -190,7 +211,7 @@ class ClaudeDataParser {
             at: agentsDir, includingPropertiesForKeys: nil
         ) else { return [] }
 
-        var sessions: [OpenClawSession] = []
+        var sessions: [(session: OpenClawSession, lastModified: Date)] = []
 
         for agentDir in agentDirs {
             let sessionsFile = agentDir.appendingPathComponent("sessions/sessions.json")
@@ -211,18 +232,30 @@ class ClaudeDataParser {
                 let inputTokens = sessionInfo["inputTokens"] as? Int ?? 0
                 let outputTokens = sessionInfo["outputTokens"] as? Int ?? 0
 
-                sessions.append(OpenClawSession(
-                    model: model,
-                    inputTokens: inputTokens,
-                    outputTokens: outputTokens,
-                    totalTokens: totalTokens,
-                    contextLimit: contextTokens,
-                    sessionFile: sessionFile
+                // Prefer the last model from JSONL (ground truth of what's actually responding),
+                // then fall back to sessions.json default model
+                let actualModel = lastModelFromJSONL(path: sessionFile)
+                    ?? model
+
+                // Get file modification date to sort by most recently active
+                let sessionURL = URL(fileURLWithPath: sessionFile)
+                let modDate = (try? sessionURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+
+                sessions.append((
+                    session: OpenClawSession(
+                        model: actualModel,
+                        inputTokens: inputTokens,
+                        outputTokens: outputTokens,
+                        totalTokens: totalTokens,
+                        contextLimit: contextTokens,
+                        sessionFile: sessionFile
+                    ),
+                    lastModified: modDate
                 ))
             }
         }
 
-        return sessions
+        return sessions.sorted { $0.lastModified > $1.lastModified }.map { $0.session }
     }
 
     /// Calculate cost for OpenClaw session JSONL file

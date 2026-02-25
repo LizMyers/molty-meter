@@ -25,7 +25,7 @@ class BudgetReportGenerator {
             try html.write(to: reportURL, atomically: true, encoding: .utf8)
             NSWorkspace.shared.open(reportURL)
         } catch {
-            print("Failed to write report: \(error)")
+            // Failed to write report
         }
     }
 
