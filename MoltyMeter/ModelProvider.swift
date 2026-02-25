@@ -43,4 +43,9 @@ enum ModelProvider {
         if case .anthropic = self { return true }
         return false
     }
+
+    var isUnknown: Bool {
+        if case .unknown = self { return true }
+        return false
+    }
 }

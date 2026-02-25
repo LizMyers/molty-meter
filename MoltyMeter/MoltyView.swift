@@ -138,7 +138,7 @@ struct MoltyView: View {
                         .font(.system(size: 13))
                         .foregroundColor(textColor.opacity(0.6))
                     Spacer()
-                    Text("v1.1")
+                    Text("v1.2")
                         .font(.system(size: 13))
                         .foregroundColor(textColor.opacity(0.6))
                 }

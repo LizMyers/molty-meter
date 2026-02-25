@@ -1,21 +1,5 @@
 import Foundation
 
-private let logFile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".molty-debug.log")
-private func log(_ msg: String) {
-    let line = "\(Date()): \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logFile.path) {
-            if let fh = try? FileHandle(forWritingTo: logFile) {
-                fh.seekToEndOfFile()
-                fh.write(data)
-                fh.closeFile()
-            }
-        } else {
-            try? data.write(to: logFile)
-        }
-    }
-}
-
 enum AnthropicCostFetcher {
 
     // Cache: re-fetch every 30 minutes
@@ -31,7 +15,6 @@ enum AnthropicCostFetcher {
             return cached
         }
 
-        log("[MoltyAPI] fetchMonthlyHaikuCost called (cost_report)")
         let calendar = Calendar.current
         let now = Date()
 
@@ -67,7 +50,6 @@ enum AnthropicCostFetcher {
             ]
 
             guard let url = components.url else { return nil }
-            log("[MoltyAPI] Page \(pageCount): \(url)")
 
             var request = URLRequest(url: url)
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
@@ -81,7 +63,6 @@ enum AnthropicCostFetcher {
                 }
                 guard let (respData, response) = try? await URLSession.shared.data(for: request),
                       let httpResponse = response as? HTTPURLResponse else {
-                    log("[MoltyAPI] Request failed (attempt \(attempt + 1)/3)")
                     if attempt < 2 { continue }
                     return nil
                 }
@@ -90,7 +71,6 @@ enum AnthropicCostFetcher {
                 if httpStatus != 429 { break }
             }
 
-            log("[MoltyAPI] HTTP \(httpStatus)")
             guard httpStatus == 200, let data else { return nil }
 
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -120,7 +100,6 @@ enum AnthropicCostFetcher {
         }
 
         let result = totalCents / 100.0
-        log("[MoltyAPI] Total: $\(String(format: "%.2f", result))")
 
         cachedCost = result
         lastFetchTime = Date()

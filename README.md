@@ -2,7 +2,7 @@
 
 Molty Meter is a macOS widget that monitors your Moltbot sessions in real time. It pulls session data from your local [OpenClaw](https://openclaw.ai) install and monthly cost data from the Anthropic Admin API.
 
-<img src="molty-hero-v1.1.png" alt="Molty Meter" width="100%">
+<img src="Molty-Meter-Screenshot-v1.1.png" alt="Molty Meter" width="100%">
 
 **The arc** shows how full your context window is. As it fills, Molty's status changes:
 
@@ -98,6 +98,22 @@ If you only want to surface token usage, without cost tracking, check out [Token
 - macOS 13+
 - [OpenClaw](https://github.com/openclaw) (reads from `~/.openclaw/agents/`)
 
+<<<<<<< HEAD
+=======
+## Changelog
+
+### v1.2
+- **Fix: model display now tracks the actual model in use.** Previously the meter could show a stale model name from `sessions.json`. Now reads `modelOverride` from OpenClaw session data, so switching models (e.g. Haiku to Gemma) updates correctly — even when the provider falls back silently.
+- **Local model support.** When using a local model (Ollama, etc.), Monthly shows `$0.00` and Forecast shows "No bills!"
+- **Session sorting by recency.** When multiple sessions exist, Molty picks the most recently active one.
+
+### v1.1
+- Multi-provider support (Anthropic, OpenAI, unknown/local)
+- Switch to `cost_report` endpoint for exact Anthropic billing
+- Add pointer cursor on clickable elements
+- Add links to provider cost pages
+
+>>>>>>> b36f1e7 (Prepare v1.2 for publish: fix model tracking, remove debug logging, clean up for GitHub)
 ## License
 
 MIT

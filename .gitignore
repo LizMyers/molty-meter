@@ -24,6 +24,9 @@ Thumbs.db
 .env.local
 *.pem
 
+# Claude Code
+.claude/
+
 # Graphics/design files
 *.ai
 *.eps

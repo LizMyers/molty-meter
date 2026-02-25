@@ -1,17 +1,6 @@
 import Foundation
 import Combine
 
-private func moltyLog(_ msg: String) {
-    let logFile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".molty-debug.log")
-    let line = "\(Date()): \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logFile.path),
-           let fh = try? FileHandle(forWritingTo: logFile) {
-            fh.seekToEndOfFile(); fh.write(data); fh.closeFile()
-        } else { try? data.write(to: logFile) }
-    }
-}
-
 @MainActor
 class SessionDataProvider: ObservableObject {
     @Published var totalTokens: Int = 0
@@ -149,13 +138,10 @@ class SessionDataProvider: ObservableObject {
         case .openAI:
             let modelPrefix = "gpt"
             if let openaiKey = config.openaiAdminKey, !openaiKey.isEmpty {
-                moltyLog("[OpenAI] Admin key found, launching fetch task")
                 Task { [weak self] in
                     if let cost = await OpenAICostFetcher.fetchMonthlyCost(apiKey: openaiKey, costStartDate: config.costStartDate) {
-                        moltyLog("[OpenAI] Got cost: $\(String(format: "%.2f", cost))")
                         self?.monthlySpend = cost
                     } else {
-                        moltyLog("[OpenAI] Fetch returned nil, falling back to OpenClaw")
                         self?.monthlySpend = ClaudeDataParser.openClawMonthlyCost(modelPrefix: modelPrefix)
                     }
                     self?.forecastText = self?.calculateForecast() ?? "—"
@@ -166,20 +152,16 @@ class SessionDataProvider: ObservableObject {
                     monthlySpend = localCost
                 }
             } else {
-                moltyLog("[OpenAI] No key, using OpenClaw")
                 monthlySpend = ClaudeDataParser.openClawMonthlyCost(modelPrefix: modelPrefix)
             }
 
         case .anthropic:
             let modelPrefix = "claude"
             if let adminKey = config.anthropicAdminKey, !adminKey.isEmpty {
-                moltyLog("[Anthropic] Admin key found, launching fetch task")
                 Task { [weak self] in
                     if let cost = await AnthropicCostFetcher.fetchMonthlyHaikuCost(adminKey: adminKey, costStartDate: config.costStartDate) {
-                        moltyLog("[Anthropic] Got cost: $\(String(format: "%.2f", cost))")
                         self?.monthlySpend = cost
                     } else {
-                        moltyLog("[Anthropic] Fetch returned nil, falling back to OpenClaw")
                         self?.monthlySpend = ClaudeDataParser.openClawMonthlyCost(modelPrefix: modelPrefix)
                     }
                     self?.forecastText = self?.calculateForecast() ?? "—"
@@ -190,17 +172,18 @@ class SessionDataProvider: ObservableObject {
                     monthlySpend = localCost
                 }
             } else {
-                moltyLog("[Anthropic] No admin key, using OpenClaw")
                 monthlySpend = ClaudeDataParser.openClawMonthlyCost(modelPrefix: modelPrefix)
             }
 
-        case .unknown(let model):
-            moltyLog("[Unknown provider] Model '\(model)', using OpenClaw only")
-            monthlySpend = ClaudeDataParser.openClawMonthlyCost()
+        case .unknown:
+            monthlySpend = 0
+            forecastText = "No bills!"
         }
 
-        // Calculate forecast
-        forecastText = calculateForecast()
+        // Calculate forecast (skip for local/unknown models, already set above)
+        if !provider.isUnknown {
+            forecastText = calculateForecast()
+        }
 
         // Health based on context usage for OpenClaw
         let newHealthState = SessionHealthState.fromContextPercent(session.contextPercent)
