@@ -46,7 +46,7 @@ Molty appears on your desktop. Drag it wherever you want — it remembers its po
 
 Molty reads session data from [OpenClaw](https://github.com/openclaw), which runs locally and captures token usage from your AI sessions. This is where context window and session cost data comes from — all local, read from `~/.openclaw/agents/`.
 
-OpenClaw works with Claude subscriptions (Pro, Max) — not just API keys. Run `openclaw onboard` and choose your auth method. [Setup details here.](https://docs.openclaw.ai/providers/anthropic)
+Run `openclaw onboard` to connect. [Setup details here.](https://docs.openclaw.ai/providers/anthropic)
 
 ### 4. Add your Anthropic Admin API key (recommended)
 
@@ -98,8 +98,6 @@ If you only want to surface token usage, without cost tracking, check out [Token
 - macOS 13+
 - [OpenClaw](https://github.com/openclaw) (reads from `~/.openclaw/agents/`)
 
-<<<<<<< HEAD
-=======
 ## Changelog
 
 ### v1.2
@@ -113,7 +111,6 @@ If you only want to surface token usage, without cost tracking, check out [Token
 - Add pointer cursor on clickable elements
 - Add links to provider cost pages
 
->>>>>>> b36f1e7 (Prepare v1.2 for publish: fix model tracking, remove debug logging, clean up for GitHub)
 ## License
 
 MIT
