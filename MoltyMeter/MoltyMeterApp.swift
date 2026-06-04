@@ -22,6 +22,7 @@ class KeyableWindow: NSWindow {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: KeyableWindow!
     private let dataProvider = SessionDataProvider()
+    private var appearanceObservation: NSKeyValueObservation?
 
     private let windowSize = NSSize(width: 260, height: 370)
 
@@ -38,7 +39,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.level = .normal
-        window.hasShadow = true
+        window.hasShadow = false  // No shadow like Weather widget
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.ignoresCycle]
 
@@ -48,33 +49,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
         }
 
-        // Container with rounded corners
+        // Container with rounded corners and solid translucent background
         let containerView = NSView(frame: window.contentView!.bounds)
         containerView.autoresizingMask = [.width, .height]
         containerView.wantsLayer = true
         containerView.layer?.cornerRadius = 20
         containerView.layer?.masksToBounds = true
-        containerView.layer?.backgroundColor = NSColor(white: 0.08, alpha: 0.95).cgColor
 
-        // Visual effect blur
-        let visualEffect = NSVisualEffectView(frame: containerView.bounds)
-        visualEffect.autoresizingMask = [.width, .height]
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        visualEffect.material = .sidebar
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = 20
-        visualEffect.layer?.masksToBounds = true
+        // Set initial background based on appearance
+        updateBackgroundForAppearance(containerView: containerView)
+
+        // Observe appearance changes
+        appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self, weak containerView] _, _ in
+            Task { @MainActor in
+                if let containerView = containerView {
+                    self?.updateBackgroundForAppearance(containerView: containerView)
+                }
+            }
+        }
 
         // SwiftUI content
         let hostingView = NSHostingView(rootView: MoltyView(data: dataProvider))
-        hostingView.frame = visualEffect.bounds
+        hostingView.frame = containerView.bounds
         hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = .clear
 
-        visualEffect.addSubview(hostingView)
-        containerView.addSubview(visualEffect)
+        containerView.addSubview(hostingView)
         window.contentView = containerView
 
         window.makeKeyAndOrderFront(nil)
@@ -87,6 +88,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Task { @MainActor in
             dataProvider.stopMonitoring()
+        }
+    }
+
+    private func updateBackgroundForAppearance(containerView: NSView) {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+        if isDark {
+            // Dark mode: pure black (#000) semi-transparent background
+            containerView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.8).cgColor
+        } else {
+            // Light mode: white semi-transparent background
+            containerView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.8).cgColor
         }
     }
 }

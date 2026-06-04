@@ -6,17 +6,13 @@ struct MoltyView: View {
     @State private var isShowingSettings = false
     @Environment(\.colorScheme) var colorScheme
 
-    // Adaptive colors that work in both light and dark mode
+    // White text style like Weather widget - works on both light and dark frosted glass
     private var titleColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)  // Light gray for dark mode
-            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)  // Dark gray for light mode
+        Color.white.opacity(0.95)
     }
 
     private var textColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)  // Very light gray for dark mode
-            : Color(red: 0x22/255.0, green: 0x22/255.0, blue: 0x22/255.0)  // Very dark gray for light mode
+        Color.white
     }
 
     var body: some View {
@@ -211,7 +207,7 @@ struct MoltyView: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.15))
+            .fill(Color.white.opacity(0.15))
             .frame(height: 1)
     }
 }

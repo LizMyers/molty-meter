@@ -11,17 +11,13 @@ struct ArcGaugeView: View {
     private let startAngle: Double = 180
     private let sweepAngle: Double = 180
 
-    // Adaptive colors
+    // White text style like Weather widget
     private var tickColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
-            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)
+        Color.white.opacity(0.85)
     }
 
     private var fillColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
-            : Color(red: 0x22/255.0, green: 0x22/255.0, blue: 0x22/255.0)
+        Color.white
     }
 
     // Budget remaining (inverted: 100% spent = empty, 0% spent = full)
@@ -47,7 +43,7 @@ struct ArcGaugeView: View {
                 // Background track
                 ArcShape(startAngle: startAngle, sweepAngle: sweepAngle)
                     .stroke(
-                        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.15),
+                        Color.white.opacity(0.2),
                         style: StrokeStyle(lineWidth: arcLineWidth, lineCap: .round)
                     )
                     .frame(width: radius * 2, height: radius * 2)
@@ -82,15 +78,11 @@ struct BatteryGaugeView: View {
     @Environment(\.colorScheme) var colorScheme
 
     private var trackColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.15)
-            : Color.black.opacity(0.15)
+        Color.white.opacity(0.2)
     }
 
     private var fillColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
-            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)
+        Color.white.opacity(0.85)
     }
 
     var body: some View {
