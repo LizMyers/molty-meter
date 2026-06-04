@@ -5,12 +5,24 @@ struct ArcGaugeView: View {
     let budgetProgress: Double  // 0.0 to 1.0 (monthly budget spent)
     let healthState: SessionHealthState
 
+    @Environment(\.colorScheme) var colorScheme
+
     private let arcLineWidth: CGFloat = 10
     private let startAngle: Double = 180
     private let sweepAngle: Double = 180
 
-    private let tickColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
-    private let fillColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
+    // Adaptive colors
+    private var tickColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
+            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)
+    }
+
+    private var fillColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
+            : Color(red: 0x22/255.0, green: 0x22/255.0, blue: 0x22/255.0)
+    }
 
     // Budget remaining (inverted: 100% spent = empty, 0% spent = full)
     private var budgetRemaining: Double { 1.0 - min(budgetProgress, 1.0) }
@@ -35,7 +47,7 @@ struct ArcGaugeView: View {
                 // Background track
                 ArcShape(startAngle: startAngle, sweepAngle: sweepAngle)
                     .stroke(
-                        Color.white.opacity(0.08),
+                        colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.15),
                         style: StrokeStyle(lineWidth: arcLineWidth, lineCap: .round)
                     )
                     .frame(width: radius * 2, height: radius * 2)
@@ -67,8 +79,19 @@ struct BatteryGaugeView: View {
     let progress: Double  // 0.0 to 1.0 (amount remaining)
     let size: CGFloat
 
-    private let trackColor = Color.white.opacity(0.15)
-    private let fillColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)  // #BBBBBB
+    @Environment(\.colorScheme) var colorScheme
+
+    private var trackColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.15)
+            : Color.black.opacity(0.15)
+    }
+
+    private var fillColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
+            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)
+    }
 
     var body: some View {
         ZStack {

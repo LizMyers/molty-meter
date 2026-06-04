@@ -1,14 +1,25 @@
 import SwiftUI
 import AppKit
 
-private let titleColor = Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
-private let textColor = Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
-
 struct SettingsView: View {
     @Binding var isShowingSettings: Bool
     var modelName: String = ""
     @State private var budgetText: String = ""
     @State private var config = MoltyConfig.load()
+    @Environment(\.colorScheme) var colorScheme
+
+    // Adaptive colors
+    private var titleColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0xBB/255.0, green: 0xBB/255.0, blue: 0xBB/255.0)
+            : Color(red: 0x44/255.0, green: 0x44/255.0, blue: 0x44/255.0)
+    }
+
+    private var textColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0xDD/255.0, green: 0xDD/255.0, blue: 0xDD/255.0)
+            : Color(red: 0x22/255.0, green: 0x22/255.0, blue: 0x22/255.0)
+    }
 
     private var detectedProvider: ModelProvider {
         ModelProvider.from(modelName: modelName)
@@ -57,7 +68,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 8)
             .frame(height: 32)
-            .background(Color.white.opacity(0.08))
+            .background(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.08))
             .cornerRadius(8)
             .padding(.horizontal, 15)
 
