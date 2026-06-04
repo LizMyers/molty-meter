@@ -96,10 +96,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if isDark {
             // Dark mode: pure black (#000) semi-transparent background
-            containerView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.8).cgColor
+            containerView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.3).cgColor
         } else {
-            // Light mode: white semi-transparent background
-            containerView.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.8).cgColor
+            // Light mode: dark background like Weather widget (white text on dark)
+            containerView.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.3).cgColor
         }
     }
 }

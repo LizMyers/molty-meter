@@ -143,11 +143,11 @@ struct MoltyView: View {
                 HStack {
                     Text("by Liz Myers")
                         .font(.system(size: 13))
-                        .foregroundColor(textColor.opacity(0.6))
+                        .foregroundColor(.white)
                     Spacer()
-                    Text("v1.2")
+                    Text("v1.3")
                         .font(.system(size: 13))
-                        .foregroundColor(textColor.opacity(0.6))
+                        .foregroundColor(.white)
                 }
             }
             .buttonStyle(.plain)
