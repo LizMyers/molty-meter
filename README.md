@@ -100,12 +100,12 @@ If you only want to surface token usage, without cost tracking, check out [Token
 
 ## Changelog
 
-<<<<<<< HEAD
+### v1.4
+- **Apple-style frosted glass effect.** Widget now uses NSVisualEffectView with blur material to match macOS Weather widget aesthetic. Features forced dark appearance with desktop wallpaper blur in both light and dark modes.
+
 ### v1.3
 - **Light mode fix: updated background styling.** Widget now uses a semi-transparent black background with white text in both light and dark modes, matching macOS Weather widget aesthetic. Removed drop shadow for cleaner appearance.
 
-=======
->>>>>>> 031e0f65ba965b94ea2fc46cd41bf4f4faa1b0a2
 ### v1.2
 - **Fix: model display now tracks the actual model in use.** Previously the meter could show a stale model name from `sessions.json`. Now reads `modelOverride` from OpenClaw session data, so switching models (e.g. Haiku to Gemma) updates correctly — even when the provider falls back silently.
 - **Local model support.** When using a local model (Ollama, etc.), Monthly shows `$0.00` and Forecast shows "No bills!"
