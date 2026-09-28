@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import CoreGraphics
 
 @main
 struct MoltyMeterApp: App {
@@ -37,7 +38,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.level = .normal
+        // Sit just above the desktop icons and below every normal app window — a true
+        // desktop-widget layer, same technique apps like Übersicht use. `.normal` (the
+        // previous value) put it at the same level as regular app windows, so it competed
+        // for front-of-stack and could end up floating over whatever you were working in.
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
         window.hasShadow = false
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.ignoresCycle]
@@ -54,24 +59,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         containerView.wantsLayer = true
         containerView.layer?.cornerRadius = 20
         containerView.layer?.masksToBounds = true
-        containerView.layer?.opacity = 0.85  // Add overall transparency
+        containerView.layer?.opacity = 0.97  // Was 0.85 — less transparent per Liz's request
 
         // Visual effect view for background blur (like Apple widgets)
         let visualEffect = NSVisualEffectView(frame: containerView.bounds)
         visualEffect.autoresizingMask = [.width, .height]
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
-        visualEffect.material = .menu  // Lighter blur
+        visualEffect.material = .hudWindow  // Was .menu — denser/darker blur material
         visualEffect.appearance = NSAppearance(named: .darkAqua)  // Force dark appearance
         visualEffect.wantsLayer = true
         visualEffect.layer?.cornerRadius = 20
         visualEffect.layer?.masksToBounds = true
 
-        // Lighten overlay to dial down darkness
+        // Darkening overlay — was a white 0.2-alpha "lighten" layer; flipped to black
+        // per Liz's request for a darker background.
         let lightenOverlay = NSView(frame: visualEffect.bounds)
         lightenOverlay.autoresizingMask = [.width, .height]
         lightenOverlay.wantsLayer = true
-        lightenOverlay.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.2).cgColor
+        lightenOverlay.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.35).cgColor
         visualEffect.addSubview(lightenOverlay)
 
         // SwiftUI content
@@ -85,7 +91,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         containerView.addSubview(visualEffect)
         window.contentView = containerView
 
-        window.makeKeyAndOrderFront(nil)
+        // orderFront (not makeKeyAndOrderFront) — a desktop widget shouldn't steal
+        // keyboard focus from whatever app you're actually using when it launches.
+        window.orderFront(nil)
 
         Task { @MainActor in
             dataProvider.startMonitoring()

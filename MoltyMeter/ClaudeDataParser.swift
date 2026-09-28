@@ -204,58 +204,68 @@ class ClaudeDataParser {
         return lastModel
     }
 
-    /// Load active OpenClaw sessions from ~/.openclaw/agents/*/sessions/sessions.json
+    /// Load active OpenClaw sessions via the `openclaw sessions --json` CLI.
+    ///
+    /// This used to read ~/.openclaw/agents/*/sessions/sessions.json directly, but OpenClaw
+    /// migrated session state into a SQLite store (openclaw-agent.sqlite) and that flat file
+    /// no longer exists — reading it always silently returned zero sessions, so the widget
+    /// permanently showed "no active session" even while Kenny was actively running. The CLI
+    /// is the stable interface to whatever storage format is live underneath (found Sep 28).
     static func loadOpenClawSessions() -> [OpenClawSession] {
-        let agentsDir = openclawDir.appendingPathComponent("agents")
-        guard let agentDirs = try? FileManager.default.contentsOfDirectory(
-            at: agentsDir, includingPropertiesForKeys: nil
-        ) else { return [] }
-
-        var sessions: [(session: OpenClawSession, lastModified: Date)] = []
-
-        for agentDir in agentDirs {
-            let sessionsFile = agentDir.appendingPathComponent("sessions/sessions.json")
-            guard let data = try? Data(contentsOf: sessionsFile),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                continue
-            }
-
-            for (_, value) in json {
-                guard let sessionInfo = value as? [String: Any],
-                      let model = sessionInfo["model"] as? String,
-                      let totalTokens = sessionInfo["totalTokens"] as? Int,
-                      let contextTokens = sessionInfo["contextTokens"] as? Int,
-                      let sessionFile = sessionInfo["sessionFile"] as? String else {
-                    continue
-                }
-
-                let inputTokens = sessionInfo["inputTokens"] as? Int ?? 0
-                let outputTokens = sessionInfo["outputTokens"] as? Int ?? 0
-
-                // Prefer the last model from JSONL (ground truth of what's actually responding),
-                // then fall back to sessions.json default model
-                let actualModel = lastModelFromJSONL(path: sessionFile)
-                    ?? model
-
-                // Get file modification date to sort by most recently active
-                let sessionURL = URL(fileURLWithPath: sessionFile)
-                let modDate = (try? sessionURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-
-                sessions.append((
-                    session: OpenClawSession(
-                        model: actualModel,
-                        inputTokens: inputTokens,
-                        outputTokens: outputTokens,
-                        totalTokens: totalTokens,
-                        contextLimit: contextTokens,
-                        sessionFile: sessionFile
-                    ),
-                    lastModified: modDate
-                ))
-            }
+        guard let json = runOpenClawSessionsJSON(),
+              let sessionsArray = json["sessions"] as? [[String: Any]] else {
+            return []
         }
 
-        return sessions.sorted { $0.lastModified > $1.lastModified }.map { $0.session }
+        var sessions: [OpenClawSession] = []
+        for entry in sessionsArray {
+            guard let model = entry["model"] as? String,
+                  let totalTokens = entry["totalTokens"] as? Int,
+                  let contextTokens = entry["contextTokens"] as? Int else {
+                continue
+            }
+            let inputTokens = entry["inputTokens"] as? Int ?? 0
+            let outputTokens = entry["outputTokens"] as? Int ?? 0
+            let identity = entry["key"] as? String ?? entry["sessionId"] as? String ?? "unknown"
+
+            sessions.append(OpenClawSession(
+                model: model,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                totalTokens: totalTokens,
+                contextLimit: contextTokens,
+                sessionFile: identity
+            ))
+        }
+
+        // The CLI already returns sessions sorted most-recently-updated first.
+        return sessions
+    }
+
+    /// Runs `openclaw sessions --json` and parses stdout. Uses the absolute Homebrew path
+    /// since GUI/LaunchAgent-launched apps don't inherit an interactive shell's PATH.
+    private static func runOpenClawSessionsJSON() -> [String: Any]? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/openclaw")
+        process.arguments = ["sessions", "--json"]
+
+        let stdout = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderrPipe
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        // Read to EOF before waiting on exit — waiting first risks a deadlock if output
+        // ever exceeds the pipe buffer (child blocks writing, parent blocks waiting).
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        _ = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
     /// Calculate cost for OpenClaw session JSONL file
