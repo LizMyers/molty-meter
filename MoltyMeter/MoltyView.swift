@@ -145,7 +145,7 @@ struct MoltyView: View {
                         .font(.system(size: 13))
                         .foregroundColor(.white)
                     Spacer()
-                    Text("v1.3")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
                         .font(.system(size: 13))
                         .foregroundColor(.white)
                 }
