@@ -38,11 +38,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.isOpaque = false
         window.backgroundColor = .clear
-        // Sit just above the desktop icons and below every normal app window — a true
-        // desktop-widget layer, same technique apps like Übersicht use. `.normal` (the
-        // previous value) put it at the same level as regular app windows, so it competed
-        // for front-of-stack and could end up floating over whatever you were working in.
-        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+        // Reverted Sep 28: the desktop-icon layer only renders when nothing else covers
+        // that screen region, so with any normal window over that spot the widget vanished
+        // entirely — worse than the original "floats above" complaint. Back to .normal;
+        // the orderFront-not-makeKey change below (which stops focus-stealing at launch)
+        // stays, since that part was an unambiguous improvement.
+        window.level = .normal
         window.hasShadow = false
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.ignoresCycle]
