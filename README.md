@@ -31,20 +31,22 @@ That's the molt. When Molty warns you, start a fresh session. Clean context, sha
 
 ```bash
 git clone https://github.com/lizmyers/molty-meter.git
-cd molty-meter && swift build
+cd molty-meter && swift build -c release
 ```
+
+Build the **release** configuration, not the default debug build — if you set Molty to launch at login (below), a LaunchAgent pointing at `.build/debug/` will silently break the next time you rebuild during development, since that path gets overwritten by routine `swift build` runs. `.build/release/` only changes when you explicitly rebuild release.
 
 ### 2. Launch
 
 ```bash
-.build/debug/MoltyMeter
+.build/release/MoltyMeter
 ```
 
 Molty appears on your desktop. Drag it wherever you want — it remembers its position between launches.
 
 ### 3. Connect your data
 
-Molty reads session data from [OpenClaw](https://github.com/openclaw), which runs locally and captures token usage from your AI sessions. This is where context window and session cost data comes from — all local, read from `~/.openclaw/agents/`.
+Molty reads session data by calling `openclaw sessions --json`, which reflects whatever [OpenClaw](https://github.com/openclaw) is running locally and tracking from your AI sessions. This is where context window and session cost data comes from — all local, via the `openclaw` CLI on your machine (not a network call).
 
 OpenClaw works with Claude subscriptions (Pro, Max) — not just API keys. Run `openclaw onboard` and choose your auth method. [Setup details here.](https://docs.openclaw.ai/providers/anthropic)
 
@@ -67,9 +69,43 @@ Don't have an admin key? Molty still works — it estimates monthly costs from l
 
 ### 5. Start on login (optional)
 
-1. Open **System Settings > General > Login Items**
-2. Click **+** under "Open at Login"
-3. Navigate to your MoltyMeter build and select it
+The reliable way is a LaunchAgent pointed at the **release** build:
+
+```bash
+cat > ~/Library/LaunchAgents/com.you.molty-meter.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.you.molty-meter</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/YOUR/PATH/TO/molty-meter/.build/release/MoltyMeter</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+launchctl load ~/Library/LaunchAgents/com.you.molty-meter.plist
+```
+
+**Two things that matter here:**
+- Point it at `.build/release/`, not `.build/debug/`. A LaunchAgent pointed at the debug build will silently fail to survive a reboot the next time routine development overwrites that path — this exact bug shipped for months before being caught.
+- The `EnvironmentVariables PATH` block matters: without it, a login-launched Molty can't find the `openclaw` CLI it now shells out to for session data, and the widget will show "No active session" even while you're actively working.
+
+Alternatively, use **System Settings > General > Login Items** and add your release build manually — simpler, but you're responsible for remembering to point it at `.build/release/` after every rebuild.
+
+To disable: `launchctl unload ~/Library/LaunchAgents/com.you.molty-meter.plist`
 
 ## Works With Your Provider
 
@@ -96,9 +132,14 @@ If you only want to surface token usage, without cost tracking, check out [Token
 ## Requirements
 
 - macOS 13+
-- [OpenClaw](https://github.com/openclaw) (reads from `~/.openclaw/agents/`)
+- [OpenClaw](https://github.com/openclaw), installed and reachable via the `openclaw` CLI (Molty calls `openclaw sessions --json` for live session data)
 
 ## Changelog
+
+### v1.5
+- **Fix: "No active session" shown permanently.** OpenClaw migrated session storage from a flat `~/.openclaw/agents/*/sessions/sessions.json` file into a SQLite-backed store; that file no longer exists on current OpenClaw installs, so Molty's old direct-file read always silently found nothing. Now reads live session data via `openclaw sessions --json` instead, which tracks whatever storage format OpenClaw uses underneath.
+- **Fix: widget could float above whatever app you were using.** Launch no longer steals keyboard focus (`orderFront` instead of `makeKeyAndOrderFront`).
+- **Darker, less transparent background** by default.
 
 ### v1.4
 - **Apple-style frosted glass effect.** Widget now uses NSVisualEffectView with blur material to match macOS Weather widget aesthetic. Features forced dark appearance with desktop wallpaper blur in both light and dark modes.
